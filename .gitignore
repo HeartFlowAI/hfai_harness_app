@@ -1,0 +1,25 @@
+node_modules/
+dist/
+dist-aurora-*/
+*.log
+.env*
+test-output/
+aurora.json
+*.pem
+*.key
+*.pfx
+*.p12
+.DS_Store
+Thumbs.db
+
+# Local tooling, captures and support exports
+.codex/
+.cache/
+coverage/
+screenshots/
+recordings/
+diagnostics/
+*.dmp
+.npmrc
+credentials.json
+secrets.json

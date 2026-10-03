@@ -1,0 +1,30 @@
+const test = require('node:test');
+const assert = require('node:assert/strict');
+const fs = require('node:fs/promises');
+const os = require('node:os');
+const path = require('node:path');
+const { searchFiles } = require('../src/file-search');
+const { executeTool } = require('../src/tools');
+test('search finds filename keywords without a workspace and skips junctions', async t => {
+  const root = await fs.mkdtemp(path.join(os.tmpdir(), 'aurora-search-'));
+  t.after(() => fs.rm(root, {recursive:true,force:true}));
+  const base=path.join(root,'base'),outside=path.join(root,'outside');
+  await fs.mkdir(base);await fs.mkdir(outside);
+  await fs.writeFile(path.join(base,'Order confirmation.pdf'),Buffer.from([0,1,2]));
+  await fs.writeFile(path.join(base,'notes.txt'),'order confirmation');
+  await fs.writeFile(path.join(outside,'Order confirmation secret.pdf'),'private');
+  await fs.symlink(outside,path.join(base,'escape'),process.platform==='win32'?'junction':'dir');
+  const signal=new AbortController().signal;
+  const result=await executeTool('find_files',{query:'order confirm'},{signal,findFiles:q=>searchFiles(q,[base],signal)});
+  assert.equal(result.matches.length,1);assert.equal(result.matches[0].name,'Order confirmation.pdf');
+  assert.equal(result.matches[0].size,3);assert.equal(result.truncated,false);
+  assert.equal((await searchFiles('*.pdf',[base],signal)).matches.length,1);
+  const limited=await searchFiles('*',[base],signal,{maxEntries:1});assert.equal(limited.truncated,true);
+  const stopped=new AbortController();stopped.abort();await assert.rejects(searchFiles('*',[base],stopped.signal));
+});
+test('reveal tool only passes its opaque result id to the main process',async()=>{
+  const signal=new AbortController().signal;
+  const result=await executeTool('reveal_file',{file_id:'chosen-result'},{signal,revealFile:async id=>({id})});
+  assert.deepEqual(result,{id:'chosen-result'});
+  await assert.rejects(executeTool('reveal_file',{file_id:'chosen-result',path:'C:\\secret'},{signal}),/Unexpected/);
+});

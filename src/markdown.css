@@ -1,0 +1,18 @@
+.message.assistant .message-body{white-space:normal;line-height:1.75;color:#dbdbe7}
+.message-body p{margin:0 0 14px}.message-body> :last-child{margin-bottom:0}
+.message-body strong{font-weight:650;color:#f0e7fa}.message-body em{color:#dbc9ec}
+.message-body h1,.message-body h2,.message-body h3,.message-body h4,.message-body h5,.message-body h6{line-height:1.35;letter-spacing:0;margin:22px 0 10px;font-weight:600;color:#eee5fa}
+.message-body h1{font-size:23px}.message-body h2{font-size:20px}.message-body h3{font-size:17px}.message-body h4,.message-body h5,.message-body h6{font-size:14px}
+.message-body ul,.message-body ol{padding-left:24px;margin:10px 0 17px}.message-body li{padding-left:3px;margin:5px 0}.message-body li>p{margin:5px 0}
+.message-body li::marker{color:#b49cce}.message-body a{color:#c8adf1;text-decoration:underline;text-underline-offset:3px;cursor:pointer}
+.message-body blockquote{margin:16px 0;border-left:3px solid #a183c8;background:#24202e;padding:12px 16px;border-radius:0 8px 8px 0;color:#bdb3cd}
+.message-body blockquote p:last-child{margin-bottom:0}.message-body hr{border:0;border-top:1px solid #373042;margin:20px 0}
+.message-body :not(pre)>code{font-family:Consolas,'Cascadia Code',monospace;font-size:.92em;color:#dcbfee;background:#2b2437;border:1px solid #43354d;border-radius:5px;padding:2px 5px;white-space:break-spaces}
+.code-block{margin:16px 0;border:1px solid #3a3148;border-radius:10px;overflow:hidden;background:#11121c;max-width:100%}
+.code-toolbar{display:flex;justify-content:space-between;align-items:center;padding:8px 13px;border-bottom:1px solid #302a3d;background:#211c2b;color:#a998bc;font-size:10px}
+.code-copy{font-size:10px;color:#d2b9f0;border-radius:5px;padding:4px 8px;background:#33283f}
+.code-block pre{margin:0;padding:15px 16px;overflow-x:auto;line-height:1.65;scrollbar-width:thin}
+.code-block code{font:12px/1.65 Consolas,'Cascadia Code',monospace;white-space:pre;overflow-wrap:normal;color:#d7d7e7}
+.token.comment,.token.prolog{color:#818ba2}.token.string,.token.char{color:#a8d5b0}.token.keyword,.token.boolean{color:#c3a5ff}.token.function{color:#90cce5}.token.number{color:#ecc091}.token.operator,.token.punctuation{color:#bab5cc}.token.variable{color:#f1b8d5}.token.property,.token.tag{color:#e2b1ce}
+.table-scroll{overflow-x:auto;margin:16px 0;border:1px solid #373044;border-radius:9px}.message-body table{border-collapse:collapse;width:100%;font-size:12px}.message-body th,.message-body td{padding:10px 13px;border-bottom:1px solid #373044;text-align:left;vertical-align:top}.message-body th{color:#ddc6fa;background:#24202e}.message-body tr:last-child td{border-bottom:0}
+.conversation{min-height:0}#messages{min-height:0;flex-basis:0;overflow-x:hidden}

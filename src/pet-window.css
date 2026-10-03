@@ -1,0 +1,4 @@
+body{margin:0;background:transparent;overflow:hidden;font-family:'Segoe UI',sans-serif;user-select:none}.pet-host{width:180px;height:200px;-webkit-app-region:drag}.pet-controls{display:flex;justify-content:center;gap:5px;height:26px;opacity:.15;transition:opacity .2s}body:hover .pet-controls{opacity:1}button{border:1px solid #ad92c955;color:#e2ceef;background:#282033e8;border-radius:8px;font-size:10px;padding:3px 10px;cursor:pointer;-webkit-app-region:no-drag}
+.pet-host{width:280px;height:280px}.pet-controls{height:30px}
+
+#point-label{position:absolute;bottom:33px;left:8px;right:8px;text-align:center;font-size:11px;color:#ffdeef;background:#282033ee;border-radius:8px;padding:5px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;pointer-events:none}#point-label:empty{display:none}

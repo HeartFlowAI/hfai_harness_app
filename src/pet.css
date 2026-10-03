@@ -1,0 +1,38 @@
+.pet-host{isolation:isolate;user-select:none;position:relative}
+.aurora-reference,.aurora-sprite{position:absolute;inset:0;width:100%;height:100%;object-fit:contain;image-rendering:pixelated;transform-origin:50% 94%;pointer-events:none}
+.aurora-reference{inset:12%;width:76%;height:76%;animation:aurora-breathe 3.6s ease-in-out infinite}
+.aurora-sprite{display:none}
+.has-atlas:not([data-state=idle]) .aurora-reference{display:none}
+.has-atlas:not([data-state=idle]) .aurora-sprite{display:block}
+[data-state=walking]:not(.has-walk) .aurora-reference{display:block}
+[data-state=walking]:not(.has-walk) .aurora-sprite{display:none}
+.aurora-stars{position:absolute;right:10%;top:8%;color:#ffd3f1;font-size:22px;opacity:0;pointer-events:none;text-shadow:0 0 14px #f09bff;animation:aurora-twinkle 1.5s infinite}
+.aurora-bubble{position:absolute;right:9%;top:5%;background:#ead7ffe8;color:#735186;border:1px solid #d8b0f4;border-radius:12px;padding:1px 9px;font:600 19px 'Segoe UI',sans-serif;display:none;animation:aurora-float 2s ease-in-out infinite;pointer-events:none}
+[data-state=thinking] .aurora-bubble,[data-state=waiting] .aurora-bubble,[data-state=error] .aurora-bubble{display:block}
+[data-state=thinking] .aurora-sprite,[data-state=waiting] .aurora-sprite{animation:aurora-breathe 3.6s ease-in-out infinite}
+[data-state=coding] .aurora-sprite{animation:aurora-focus 1.2s ease-in-out infinite}
+[data-state=browsing] .aurora-sprite{animation:aurora-focus 2s ease-in-out infinite}
+[data-state=walking] .aurora-sprite{animation:none}
+[data-state=climbing] .aurora-sprite{animation:aurora-climb .52s ease-in-out infinite}
+[data-state=celebrating] .aurora-sprite{animation:aurora-cheer .84s ease-in-out infinite}
+[data-state=celebrating] .aurora-stars{opacity:1}
+[data-state=error] .aurora-sprite{animation:aurora-sigh 2.5s ease-in-out infinite}
+@keyframes aurora-breathe{50%{transform:translateY(-2px)}}
+@keyframes aurora-focus{50%{transform:translateY(-1px)}}
+@keyframes aurora-step{50%{transform:translateY(-3px)}}
+@keyframes aurora-climb{50%{transform:translateY(-4px) rotate(-1deg)}}
+/* Vertical relocation happens between these two phases, with no visible flight. */
+[data-state=teleporting][data-phase=out] .aurora-sprite{animation:aurora-teleport-out .3s ease-in forwards}
+[data-state=teleporting][data-phase=in] .aurora-sprite{animation:aurora-teleport-in .3s ease-out forwards}
+.aurora-portal{display:none;position:absolute;left:25%;right:25%;bottom:8%;height:15px;border:2px solid #edb1ff;border-radius:50%;box-shadow:0 0 14px #b460ed,inset 0 0 10px #b460ed;pointer-events:none}
+[data-state=teleporting] .aurora-portal{display:block;animation:aurora-portal .3s ease-in-out}
+@keyframes aurora-teleport-out{0%{opacity:1;filter:brightness(1);transform:scale(1)}60%{opacity:.7;filter:brightness(1.8)}100%{opacity:0;filter:brightness(2);transform:scale(.65,1.12)}}
+@keyframes aurora-teleport-in{0%{opacity:0;filter:brightness(2);transform:scale(.65,1.12)}100%{opacity:1;filter:brightness(1);transform:scale(1)}}
+@keyframes aurora-portal{0%,100%{opacity:.2;transform:scale(.6)}50%{opacity:1;transform:scale(1.2)}}
+@keyframes aurora-cheer{50%{transform:translateY(-6px)}}
+@keyframes aurora-sigh{50%{transform:rotate(-1.5deg)}}
+@keyframes aurora-twinkle{50%{transform:scale(1.25) rotate(15deg)}}
+@keyframes aurora-float{50%{transform:translateY(-4px)}}
+@media(prefers-reduced-motion:reduce){.pet-host *{animation:none!important}}
+
+[data-voice=speaking] .aurora-stars{opacity:1;animation:aurora-twinkle .7s ease-in-out infinite}[data-voice=listening] .aurora-stars{opacity:1;color:#a8e4c3}[data-voice=listening] .aurora-reference{animation:aurora-breathe 1.8s ease-in-out infinite}

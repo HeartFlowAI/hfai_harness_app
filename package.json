@@ -1,0 +1,47 @@
+{
+  "name": "heartflow-aurora",
+  "productName": "Heartflow Aurora",
+  "version": "0.1.0",
+  "private": true,
+  "description": "A minimal Windows agent companion powered by Ollama Cloud",
+  "main": "src/main.js",
+  "scripts": {
+    "start": "electron .",
+    "test": "node --test test/*.test.js",
+    "check": "node scripts/check.js",
+    "vendor": "node scripts/vendor.js",
+    "animations": "electron scripts/animations.js",
+    "pack": "electron-builder --dir",
+    "dist": "electron-builder --win portable"
+  },
+  "devDependencies": {
+    "dompurify": "^3.4.16",
+    "electron": "^41.0.0",
+    "electron-builder": "^26.0.12",
+    "marked": "^18.0.14",
+    "prismjs": "^1.30.0"
+  },
+  "build": {
+    "asarUnpack": [
+      "src/native/**/*"
+    ],
+    "appId": "ai.heartflow.aurora",
+    "files": [
+      "src/**/*",
+      "package.json"
+    ],
+    "directories": {
+      "output": "dist"
+    },
+    "win": {
+      "target": "portable",
+      "signAndEditExecutable": true,
+      "icon": "src/assets/brand/heartflow.ico",
+      "signExecutable": false
+    }
+  },
+  "dependencies": {
+    "ws": "^8.22.0"
+  },
+  "author": "Heartflow AI"
+}
