@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.2.4 — Pointing and animation corrections
+
+- Dedicated sideways pointing artwork for Cyber, Dark and Cozy, replacing the upward-reaching fallback. All outfits align their fingertips to the desktop file-presentation anchor and mirror for left-facing targets.
+- Regenerated community activity sheets with complete boots and hands; render-time pose isolation removes neighbouring fragments and stray pixels while retaining substantial props.
+- Safe crop margins protect poses that cross an approximate atlas grid boundary. Consistent scale and foot baselines reduce jumps between activity frames.
+- Skip the malformed three-arm celebration pose in the original atlas and use its clean alternate.
+- Added canvas auditing for every activity frame and both pointing directions, plus multi-DPI alignment and fragment-removal checks.
+
 ## 0.2.3 — A calmer workspace
 
 - Removed Mint from the appearance picker. Previously saved Mint selections fall back to Classic.

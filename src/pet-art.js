@@ -35,15 +35,16 @@ document.querySelectorAll('.pet-host').forEach(host => {
   const artwork=document.createElement('div');artwork.className='aurora-art';artwork.append(reference,sprite);
   host.replaceChildren(artwork, stars, bubble,portal);
   let dirty = true;
-  const skins=new Map();let selectedSkin=null,skinImage=null;
+  const skins=new Map();let selectedSkin=null,skinImage=null,skinRecord=null;
   const selectSkin=()=>{
+    delete host.dataset.pointX;delete host.dataset.pointY;delete host.dataset.pointAppearance;
     selectedSkin=window.AuroraAppearances?.list.find(item=>item.id===host.dataset.appearance&&item.atlas)||null;
     host.classList.toggle('community-art',!!selectedSkin);
-    if(!selectedSkin){skinImage=null;return;}
+    if(!selectedSkin){skinImage=null;skinRecord=null;return;}
     if(!skins.has(selectedSkin.id)){
-      const image=new Image();image.onload=()=>{dirty=true;};image.onerror=()=>{host.classList.add('skin-unavailable');};image.src=selectedSkin.atlas;skins.set(selectedSkin.id,image);
+      const image=new Image(),point=new Image(),record={image,point,frames:[]};image.onload=point.onload=()=>{dirty=true;};image.onerror=point.onerror=()=>{host.classList.add('skin-unavailable');};image.src=selectedSkin.atlas;point.src=`assets/aurora/skins/${selectedSkin.id}-pointing.png`;skins.set(selectedSkin.id,record);
     }
-    skinImage=skins.get(selectedSkin.id);host.classList.remove('skin-unavailable');
+    skinRecord=skins.get(selectedSkin.id);skinImage=skinRecord.image;host.classList.remove('skin-unavailable');
   };
   new MutationObserver(()=>{selectSkin();dirty=true;}).observe(host,{attributes:true,attributeFilter:['data-appearance']});selectSkin();
   const atlas = new Image();
@@ -57,6 +58,7 @@ document.querySelectorAll('.pet-host').forEach(host => {
   pointImage.onload = () => { host.classList.add('has-point'); dirty = true; };
   pointImage.src = 'assets/aurora/pointing.png';
   let previous = '', previousFacing = '', frame = 0, lastTick = 0;
+  const originalFrames=[],walkFrames=[];let originalPoint;
   const resize = () => {
     const ratio = devicePixelRatio || 1;
     sprite.width = Math.round(host.clientWidth * ratio); sprite.height = Math.round(host.clientHeight * ratio);
@@ -64,27 +66,37 @@ document.querySelectorAll('.pet-host').forEach(host => {
   };
   new ResizeObserver(resize).observe(host);
   const draw = (index,state) => {
+    const ctx=sprite.getContext('2d');ctx.clearRect(0,0,sprite.width,sprite.height);ctx.imageSmoothingEnabled=false;
+    if(state==='pointing'){
+      const image=skinRecord?.point||pointImage;if(!image.complete||!image.naturalWidth||!sprite.width)return;
+      const prepared=skinRecord?(skinRecord.preparedPoint ||= AuroraSpriteFrames.preparePointing(image)):(originalPoint ||= AuroraSpriteFrames.preparePointing(image));
+      const [x,y,w,h]=prepared.bounds,layout=AuroraSpriteFrames.pointingLayout(prepared.bounds,prepared.finger,sprite.width,sprite.height);
+      ctx.save();if(host.dataset.facing==='left'){ctx.translate(sprite.width,0);ctx.scale(-1,1);}
+      ctx.drawImage(prepared.canvas,x,y,w,h,layout.x,layout.y,layout.width,layout.height);ctx.restore();dirty=false;host.dataset.pointX=String((host.dataset.facing==='left'?sprite.width-layout.anchor.x:layout.anchor.x)/(devicePixelRatio||1));host.dataset.pointY=String(layout.anchor.y/(devicePixelRatio||1));host.dataset.pointAppearance=selectedSkin?.id||'classic';return;
+    }
     if(selectedSkin){
-      const ctx=sprite.getContext('2d');ctx.clearRect(0,0,sprite.width,sprite.height);
       if(!skinImage?.complete||!skinImage.naturalWidth||!sprite.width)return;
-      const pose=state==='walking'?8+index%2:state==='pointing'?10:index;
-      const [x,y,w,h]=window.AuroraAppearances.frameRect(selectedSkin,pose,skinImage.naturalWidth,skinImage.naturalHeight);
-      const scale=Math.min(sprite.width*.96/w,sprite.height*.82/h),width=w*scale,height=h*scale;
+      const pose=state==='walking'?8+index%2:index;
+      const getFrame=i=>skinRecord.frames[i] ||= AuroraSpriteFrames.prepareFrame(skinImage,window.AuroraAppearances.frameRect(selectedSkin,i,skinImage.naturalWidth,skinImage.naturalHeight));
+      const prepared=getFrame(pose),[x,y,w,h]=prepared.bounds;
+      const scale=Math.min(sprite.width*.94/w,sprite.height*.82/h,sprite.height*.76/getFrame(0).bounds[3]),width=w*scale,height=h*scale;
       ctx.imageSmoothingEnabled=false;ctx.save();
       if((state==='walking'||state==='pointing')&&host.dataset.facing==='left'){ctx.translate(sprite.width,0);ctx.scale(-1,1);}
-      ctx.drawImage(skinImage,x,y,w,h,(sprite.width-width)/2,sprite.height*.9-height,width,height);ctx.restore();dirty=false;return;
+      ctx.drawImage(prepared.canvas,x,y,w,h,(sprite.width-width)/2,sprite.height*.88-height,width,height);ctx.restore();dirty=false;return;
     }
     const walking=state==='walking',pointing=state==='pointing',image=pointing?pointImage:walking?walkAtlas:atlas;
     if (!image.complete || !image.naturalWidth || !sprite.width) return;
-    const [x,y,w,h] = pointing ? [224,8,890,1234] : (walking?auroraWalkRects:auroraFrameRects)[index];
-    const ctx = sprite.getContext('2d');
-    ctx.clearRect(0,0,sprite.width,sprite.height); ctx.imageSmoothingEnabled = false;
+    // The original atlas's first cheer has an extra arm; render its clean pair.
+    if(!walking&&index===12)index=13;
+    const frames=walking?walkFrames:originalFrames;
+    const prepared=frames[index] ||= AuroraSpriteFrames.prepareFrame(image,(walking?auroraWalkRects:auroraFrameRects)[index]);
+    const [x,y,w,h]=prepared.bounds;
     const scale = sprite.height * .76 / (pointing?1234:walking?596:296);
-    const padding = 2;
+    const padding = 0;
     const width = (w + padding * 2) * scale, height = (h + padding * 2) * scale;
     ctx.save();
     if((walking||pointing)&&host.dataset.facing==='left'){ctx.translate(sprite.width,0);ctx.scale(-1,1);}
-    ctx.drawImage(image, x-padding, y-padding, w+padding*2, h+padding*2,
+    ctx.drawImage(prepared.canvas, x-padding, y-padding, w+padding*2, h+padding*2,
       (sprite.width-width)/2, sprite.height*.88-height, width, height);
     ctx.restore();
     dirty = false;

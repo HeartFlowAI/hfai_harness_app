@@ -97,3 +97,7 @@ node scripts/lifecycle-smoke.js
 This runner launches separate Electron processes sharing one isolated profile. It verifies duplicate rejection, restoration of a minimized window, shutdown with hidden overlays/companion windows and an active synthetic task, saved conversation data, and reopening after the lock is released. It repeats three cycles and a final fresh launch. The cursor and computer helpers are fixtures; no live microphone, cloud or physical mouse input is used.
 
 Normal launches allow one primary Aurora per Windows user/profile. Closing the main window quits the whole app; minimizing keeps it alive for voice use. `--smoke-test` normally isolates fixture instances; `--single-instance-smoke` enables the real lock for this specific test. Keep these flags out of production shortcuts.
+
+## Animation verification
+
+Run `node_modules/.bin/electron.cmd scripts/animation-audit.js` to inspect every activity pose, clean alpha and both pointing directions in the real shared renderer. It writes contact sheets and a report under `test-output/animation-audit-*`. The `pointing-check.png` preview places a mock selected file beside each actual rendered fingertip. This check does not use the physical mouse or Explorer.
