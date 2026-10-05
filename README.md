@@ -10,11 +10,12 @@
 </p>
 
 <p align="center">
-  <strong>Windows</strong> &nbsp;·&nbsp; Choose your model &nbsp;·&nbsp; Optional voice &nbsp;·&nbsp; Early preview
+  <strong>Windows · v0.2.4</strong> &nbsp;·&nbsp; Choose your model &nbsp;·&nbsp; Optional voice &nbsp;·&nbsp; Early preview
 </p>
 
 <p align="center">
-  <a href="docs/INSTALLATION.md"><strong>Install Aurora</strong></a> &nbsp;·&nbsp;
+  <a href="https://github.com/HeartFlowAI/hfai_harness_app/releases/latest"><strong>Download for Windows</strong></a> &nbsp;·&nbsp;
+  <a href="docs/INSTALLATION.md">Installation guide</a> &nbsp;·&nbsp;
   <a href="docs/PRIVACY.md">Privacy & permissions</a> &nbsp;·&nbsp;
   <a href="docs/DEVELOPMENT.md">Development</a> &nbsp;·&nbsp;
   <a href="WHITEPAPER.md">Whitepaper</a>
@@ -41,7 +42,7 @@ Connect OpenAI, Claude, OpenRouter, Ollama Cloud or local Ollama, choose a model
 | 📁 **Find your files** | Search filenames in configured folders, select a result in Explorer and let Aurora point to a verified visible file row. |
 | 🖱️ **Desktop assistance** | Restore or launch supported apps and interact through observed controls with animated mouse movement and keyboard input. |
 | 🎙️ **Talk naturally** | Enable ElevenLabs or Fish Audio recognition and speech. Say “Aurora,” answer follow-up questions and use the notch while minimized. |
-| ✨ **A visible companion** | Animated activity poses, four colour palettes, desktop teleports, a pink pointer and a compact keyboard/action display. |
+| ✨ **A visible companion** | Animated activity poses, three colour palettes and three community outfits by Jaymie, desktop teleports, a pink pointer and a compact keyboard/action display. |
 | ↓ **Updates at your pace** | Installed copies quietly check on startup. Download and restart when you choose. |
 | 🛡️ **Review & control** | Follow tool activity, stop a task and approve every direct file write or PowerShell command before it runs. |
 
@@ -52,7 +53,9 @@ Connect OpenAI, Claude, OpenRouter, Ollama Cloud or local Ollama, choose a model
 
 ### 1 · Install and launch
 
-Follow the **[complete Windows installation guide](docs/INSTALLATION.md)** for downloading the source, prerequisites, executable packaging, desktop shortcuts and troubleshooting.
+Download **[Heartflow-Aurora-Setup-0.2.4.exe](https://github.com/HeartFlowAI/hfai_harness_app/releases/download/v0.2.4/Heartflow-Aurora-Setup-0.2.4.exe)**, run it, and launch **Aurora - Heartflow AI** from your desktop or Start menu. The installer includes the app runtime; Node.js and npm are only needed for source development.
+
+See the **[complete Windows installation guide](docs/INSTALLATION.md)** for model and voice setup, permissions, updates and troubleshooting.
 
 Already have the source on Windows with Node.js 22 or newer and npm installed?
 
@@ -61,7 +64,7 @@ npm.cmd ci
 npm.cmd start
 ```
 
-> A GitHub source ZIP needs the source setup steps. It is not a runnable Windows release. Use a packaged release only when one is actually supplied by the maintainers.
+> A GitHub source ZIP needs the source setup steps. It is not a runnable Windows release. Download the installer from [GitHub Releases](https://github.com/HeartFlowAI/hfai_harness_app/releases/latest).
 
 ### 2 · Connect your model
 
@@ -125,6 +128,7 @@ The [development guide](docs/DEVELOPMENT.md) covers packaging, integration check
 | Explore more | |
 | :--- | :--- |
 | [Installation guide](docs/INSTALLATION.md) | Full Windows setup, voice, shortcuts and troubleshooting. |
+| [Changelog](CHANGELOG.md) | Changes in each version, including 0.2.4. |
 | [Development guide](docs/DEVELOPMENT.md) | Build commands, fixtures and verification. |
 | [Privacy & permissions](docs/PRIVACY.md) | Local storage, cloud data and execution boundaries. |
 | [Project whitepaper](WHITEPAPER.md) | Architecture, implemented features, limitations and roadmap. |

@@ -12,7 +12,7 @@ npm.cmd run pack
 npm.cmd run dist
 ```
 
-`npm.cmd run pack` creates `dist/win-unpacked`. `npm.cmd run dist` creates the portable Windows executable in `dist`. Native PowerShell and C# helpers must remain included in `resources/app.asar.unpacked/src/native`. The packaged app uses its own Electron runtime; no Python or global Electron installation is required.
+`npm.cmd run pack` creates `dist/win-unpacked`. `npm.cmd run dist` creates the Windows NSIS installer in `dist`. Use `npm.cmd run dist:portable` for a portable executable. Native PowerShell and C# helpers must remain included in `resources/app.asar.unpacked/src/native`. The packaged app uses its own Electron runtime; no Python or global Electron installation is required.
 
 The animation preview is available with `npm.cmd run animations` or `Preview Aurora Animations.cmd`. `scripts/build-icon.js` regenerates icon sizes from the supplied master and is run with the local Electron executable.
 
