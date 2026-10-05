@@ -10,7 +10,7 @@
 </p>
 
 <p align="center">
-  <strong>Windows</strong> &nbsp;·&nbsp; Ollama Cloud &nbsp;·&nbsp; Optional voice &nbsp;·&nbsp; Early preview
+  <strong>Windows</strong> &nbsp;·&nbsp; Choose your model &nbsp;·&nbsp; Optional voice &nbsp;·&nbsp; Early preview
 </p>
 
 <p align="center">
@@ -28,10 +28,10 @@
 
 ## Meet your companion
 
-Connect your own Ollama Cloud account, choose a model with tool support, and work with Aurora in the app or on your desktop. She can help you explore an idea, understand a project, find a file or interact with a supported application—and show what she’s doing along the way.
+Connect OpenAI, Claude, OpenRouter, Ollama Cloud or local Ollama, choose a model with tool support, and work with Aurora in the app or on your desktop. She can help you explore an idea, understand a project, find a file or interact with a supported application—and show what she’s doing along the way.
 
 > [!NOTE]
-> **Aurora is an early preview.** Browser reliability and speech accuracy vary. Windows builds are unsigned, and there is no automatic updater or production installer yet.
+> **Aurora is an early preview.** Browser reliability and speech accuracy vary. Windows builds are unsigned. Version 0.2.0 adds a per-user installer and optional updates from published GitHub Releases; source pushes alone do not distribute updates.
 
 ## A little company. A lot of possibilities.
 
@@ -41,7 +41,8 @@ Connect your own Ollama Cloud account, choose a model with tool support, and wor
 | 📁 **Find your files** | Search filenames in configured folders, select a result in Explorer and let Aurora point to a verified visible file row. |
 | 🖱️ **Desktop assistance** | Restore or launch supported apps and interact through observed controls with animated mouse movement and keyboard input. |
 | 🎙️ **Talk naturally** | Enable ElevenLabs or Fish Audio recognition and speech. Say “Aurora,” answer follow-up questions and use the notch while minimized. |
-| ✨ **A visible companion** | Animated activity poses, desktop teleports, a pink pointer and a compact keyboard/action display. |
+| ✨ **A visible companion** | Animated activity poses, four colour palettes, desktop teleports, a pink pointer and a compact keyboard/action display. |
+| ↓ **Updates at your pace** | Installed copies quietly check on startup. Download and restart when you choose. |
 | 🛡️ **Review & control** | Follow tool activity, stop a task and approve every direct file write or PowerShell command before it runs. |
 
 **Supported browsers:** Opera · Brave · Chrome · Edge · Firefox  
@@ -64,7 +65,9 @@ npm.cmd start
 
 ### 2 · Connect your model
 
-Open **Settings & connection**, enter your own [Ollama Cloud API key](https://ollama.com/settings/keys), click **Load models**, select a model with tool support and save. No local Ollama installation is required.
+Open **Settings & connection**, choose **OpenAI**, **Claude / Anthropic**, **OpenRouter**, **Ollama Cloud** or **Local Ollama**, and enter the matching API key or local address. Click **Load models**, select a model with tool support and save. Each provider keeps its own saved connection. Local Ollama requires a running local server and installed model; it needs no API key. Web search uses a separately saved Ollama Cloud key.
+
+Open **Appearance** to choose Classic, Moonlight, Sunrise or Mint. These are colour treatments of the same character and animation set.
 
 Choose a workspace folder before asking Aurora to read or create project files. The app uses your credentials; no shared cloud account or free API usage is included.
 

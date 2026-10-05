@@ -12,7 +12,9 @@ Listening starts off on launch. Microphone audio is held in memory and is not sa
 
 | Service | Data sent when used |
 | --- | --- |
-| Ollama Cloud | Submitted prompts, conversation context and tool results, including files read by tools, search metadata and observed application labels. |
+| Selected cloud model (OpenAI, Anthropic, OpenRouter or Ollama Cloud) | Submitted prompts, conversation context and tool results, including files read by tools, search metadata and observed application labels. |
+| Local Ollama | The same model context is sent to the configured loopback server on this PC. Cloud voice and web search still use their own services. |
+| GitHub updates | Installed copies request public release metadata shortly after startup and download release files when requested. GitHub receives normal network request metadata. Aurora sends no chats or provider keys for update checks. |
 | Ollama web search | The requested search query. |
 | ElevenLabs or Fish Audio cloud recognition | Captured speech for wake detection, requests, answers and controls. Local silence filtering does not make this a local-only wake-word engine. |
 | Selected speech provider | Text selected for spoken replies and the configured voice identifier; Fish can also receive delivery cues. |

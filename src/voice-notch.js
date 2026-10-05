@@ -29,7 +29,8 @@ function createVoiceNotch({getMain,onAction}){
     }else if(win.isVisible()&&!hideTimer){win.webContents.send('notch-visibility',false);hideTimer=setTimeout(()=>{hideTimer=null;if(!win.isDestroyed())win.hide();},280);}
   }
   function event(value){
-    if(!['voice-state','state','voice-partial','voice-transcript','question','question-closed','approval','approval-closed','error','pet','computer-activity','voice-expression'].includes(value.type))return;
+    if(!['appearance','voice-state','state','voice-partial','voice-transcript','question','question-closed','approval','approval-closed','error','pet','computer-activity','voice-expression'].includes(value.type))return;
+    if(value.type==='appearance')model.appearance=value.appearance;
     if(value.type==='voice-expression')model.speechPose=value.active?value.pose:null;
     if(value.type==='voice-state'){
       model.voice={enabled:value.voice.enabled,status:value.voice.status,detail:value.voice.detail};

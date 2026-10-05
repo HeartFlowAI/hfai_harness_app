@@ -8,6 +8,8 @@ contextBridge.exposeInMainWorld('aurora', {
   voicePlayback: (id,error) => ipcRenderer.invoke('voice-playback',{id,error}),
   answerQuestion: (id,answer) => ipcRenderer.invoke('question-answer',{id,answer}),
   saveSettings: values => ipcRenderer.invoke('settings', values),
+  appearance: id => ipcRenderer.invoke('appearance', id),
+  updateAction: action => ipcRenderer.invoke('update-action', action),
   models: key => ipcRenderer.invoke('models', key),
   workspace: () => ipcRenderer.invoke('workspace'),
   searchFolder: remove => ipcRenderer.invoke('search-folder', remove),

@@ -32,7 +32,8 @@ document.querySelectorAll('.pet-host').forEach(host => {
   const stars = document.createElement('div'); stars.className = 'aurora-stars'; stars.textContent = '✦'; stars.setAttribute('aria-hidden', 'true');
   const bubble = document.createElement('div'); bubble.className = 'aurora-bubble'; bubble.setAttribute('aria-hidden', 'true');
   const portal=document.createElement('div');portal.className='aurora-portal';portal.setAttribute('aria-hidden','true');
-  host.replaceChildren(reference, sprite, stars, bubble,portal);
+  const artwork=document.createElement('div');artwork.className='aurora-art';artwork.append(reference,sprite);
+  host.replaceChildren(artwork, stars, bubble,portal);
   let dirty = true;
   const atlas = new Image();
   atlas.onload = () => { host.classList.add('has-atlas'); dirty = true; };

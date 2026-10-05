@@ -32,9 +32,13 @@ function render(data) {
   const changedChat=view?.currentId!==data.currentId;
   if (changedChat) { $('file-results-open').hidden = true; $('file-results-dialog').close(); $('file-results').replaceChildren(); }
   view = data; setBusy(data.busy); petDisplay(data.detached);
+  $('pet-host').dataset.appearance = data.appearance || 'classic';
+  $('app-version').textContent = data.version;
+  $('connection-caption').textContent = data.connections[data.provider].name;
+  renderUpdates(data.updates);
   window.renderAuroraVoice?.(data.voice);
   $('pet-host').dataset.state = data.state || 'idle'; $('pet-caption').textContent = captions[data.state] || captions.idle;
-  $('model-label').textContent = data.model || 'Ollama Cloud · not connected';
+  $('model-label').textContent = data.model || `${data.connections[data.provider].name} · not connected`;
   $('workspace-label').textContent = data.workspace || 'No folder selected'; $('workspace-label').title = data.workspace || '';
   renderLibrary();
   if (!data.busy) renderMessages(data.messages,changedChat);
@@ -71,7 +75,7 @@ function renderMessages(messages,changedChat=false) { const follow=changedChat||
 function renderHistory() { $('activity').replaceChildren(); const messages = view.messages; for (let i = 0; i < messages.length; i++) { const m = messages[i]; if (m.role === 'tool') activity(m.tool_name, {}, m.content); } if (!$('activity').children.length) { const empty = document.createElement('div'); empty.className = 'activity-empty'; empty.textContent = 'Our next adventure starts with your first message.'; $('activity').append(empty); } }
 async function submit() {
   const text = $('prompt').value.trim(); if (!text || busy) return;
-  if (!view.hasKey || !view.model) { openSettings(); toast('Connect Ollama Cloud to start chatting with Aurora.'); return; }
+  if (!view.hasKey || !view.model) { openSettings(); toast('Choose a model connection to start chatting with Aurora.'); return; }
   $('prompt').value = ''; $('welcome').hidden = true; addMessage('user', text); setBusy(true);
   try { await call(window.aurora.send(text)); } catch (error) { toast(error.message); setBusy(false); }
 }
@@ -93,15 +97,49 @@ function renderSearchFolders() {
   }
 }
 $('search-folder-add').onclick = action(async () => { render(await call(window.aurora.searchFolder())); renderSearchFolders(); });
-function openSettings() { $('api-key').value = ''; $('model').value = view.model || ''; $('computer-enabled').checked=view.computerEnabled!==false; $('key-help').textContent = view.hasKey ? 'A key is saved. Leave blank to keep it, or paste a replacement.' : 'Create a key at ollama.com/settings/keys.'; $('settings-status').textContent = ''; renderSearchFolders(); $('settings-dialog').showModal(); }
+function selectProvider() {
+  const id = $('llm-provider').value, selected = view.connections[id], local = id === 'ollama-local';
+  $('api-key').value = ''; $('model').value = selected.model || ''; $('models').replaceChildren();
+  $('api-key').hidden = $('api-key-label').hidden = $('forget-key').hidden = local;
+  $('local-url').hidden = $('local-url-label').hidden = !local; $('local-url').value = selected.baseUrl || 'http://127.0.0.1:11434';
+  $('key-help').textContent = local ? 'Start Ollama on this PC and install a model with tool support. No API key is required.' : selected.hasKey ? 'A key is saved for this provider. Leave blank to keep it, or paste a replacement.' : `Paste an API key from your ${selected.name} account. API billing is separate from chat subscriptions.`;
+  $('settings-status').textContent = '';
+}
+function connectionValues() { return {provider:$('llm-provider').value,key:$('api-key').value,model:$('model').value,baseUrl:$('local-url').value}; }
+function openSettings() { $('llm-provider').value=view.provider;selectProvider();$('computer-enabled').checked=view.computerEnabled!==false;renderSearchFolders();$('settings-dialog').showModal(); }
+$('llm-provider').onchange = selectProvider;
 $('settings-open').onclick = openSettings; $('settings-close').onclick = () => $('settings-dialog').close();
-$('fetch-models').onclick = async () => { $('fetch-models').disabled = true; $('settings-status').textContent = 'Checking your connection…'; try { const models = await call(window.aurora.models($('api-key').value)); $('models').replaceChildren(); for (const model of models) { const option = document.createElement('option'); option.value = model; $('models').append(option); } if (!$('model').value && models.length) $('model').value = models[0]; $('settings-status').textContent = `Connected. ${models.length} models available. Choose a tool-capable model.`; } catch (error) { $('settings-status').textContent = error.message; } finally { $('fetch-models').disabled = false; } };
-$('settings-form').onsubmit = async event => { event.preventDefault(); try { render(await call(window.aurora.saveSettings({ key: $('api-key').value, model: $('model').value, computerEnabled:$('computer-enabled').checked }))); $('api-key').value = ''; $('settings-dialog').close(); toast('Connection saved. Aurora is ready.'); } catch (error) { $('settings-status').textContent = error.message; } };
-$('forget-key').onclick = action(async () => { render(await call(window.aurora.saveSettings({ model: $('model').value, forgetKey: true }))); $('api-key').value = ''; $('key-help').textContent = 'Saved key removed.'; });
+$('fetch-models').onclick = async () => { const values=connectionValues();$('fetch-models').disabled = true; $('settings-status').textContent = 'Checking your connection…'; try { const models = await call(window.aurora.models(values));if($('llm-provider').value!==values.provider)return; $('models').replaceChildren(); for (const model of models) { const option = document.createElement('option'); option.value = model; $('models').append(option); } $('settings-status').textContent = `Connected. ${models.length} models available. Choose a tool-capable model.`; } catch (error) { $('settings-status').textContent = error.message; } finally { $('fetch-models').disabled = false; } };
+$('settings-form').onsubmit = async event => { event.preventDefault(); try { render(await call(window.aurora.saveSettings({ ...connectionValues(),computerEnabled:$('computer-enabled').checked }))); $('api-key').value = ''; $('settings-dialog').close(); toast('Connection saved. Aurora is ready.'); } catch (error) { $('settings-status').textContent = error.message; } };
+$('forget-key').onclick = action(async () => { render(await call(window.aurora.saveSettings({ ...connectionValues(),key:'',forgetKey:true }))); $('api-key').value = ''; $('key-help').textContent = 'Saved key removed.'; });
+function renderAppearances() {
+  $('appearance-cards').replaceChildren();
+  for (const appearance of view.appearances) {
+    const button = document.createElement('button');button.className='appearance-card';button.setAttribute('aria-pressed',String(view.appearance===appearance.id));
+    const image = document.createElement('img');image.src='assets/aurora/reference.png';image.alt='';image.className='skin-preview';image.dataset.appearance=appearance.id;
+    const name=document.createElement('strong');name.textContent=appearance.name;const description=document.createElement('small');description.textContent=appearance.description;
+    button.append(image,name,description);button.onclick=action(async()=>{render(await call(window.aurora.appearance(appearance.id)));renderAppearances();$('appearance-status').textContent=`${appearance.name} selected.`;});$('appearance-cards').append(button);
+  }
+}
+$('appearance-open').onclick=()=>{renderAppearances();$('appearance-status').textContent='';$('appearance-dialog').showModal();};$('appearance-close').onclick=()=>$('appearance-dialog').close();
+let updateState;
+function renderUpdates(value) {
+  if (!value) return; updateState=value;
+  const descriptions={idle:`You’re using Aurora ${value.currentVersion}.`,checking:'Checking for a little something new…',current:`Aurora ${value.currentVersion} is up to date.`,available:`Aurora ${value.version} is ready to download.`,downloading:`Downloading Aurora ${value.version} · ${Math.round(value.percent)}%`,ready:`Aurora ${value.version} is ready. Restart to finish updating.`,error:value.error,development:'This copy uses manual updates. Install Aurora with the Windows installer to receive updates here.'};
+  $('update-description').textContent=descriptions[value.status]||'';
+  $('update-progress').hidden=value.status!=='downloading';$('update-progress').value=value.percent;
+  $('update-primary').textContent=value.status==='ready'?'Restart and update':value.status==='available'?'Download update':'Check for updates';
+  $('update-primary').disabled=['development','checking','downloading'].includes(value.status);
+  const button=$('update-download');button.hidden=!['available','downloading','ready'].includes(value.status);button.textContent=value.status==='ready'?'✓':value.status==='downloading'?`${Math.round(value.percent)}%`:'↓';button.title=value.status==='ready'?'Restart to update':`Aurora ${value.version} update`;button.setAttribute('aria-label',button.title);
+}
+$('updates-open').onclick=$('update-download').onclick=()=>$('updates-dialog').showModal();$('updates-close').onclick=()=>$('updates-dialog').close();
+$('update-primary').onclick=action(async()=>{renderUpdates(await call(window.aurora.updateAction(updateState.status==='ready'?'install':updateState.status==='available'?'download':'check')));});
 async function approve(allow) { if (!approvalId) return; try { await call(window.aurora.approval(approvalId, allow)); } catch (error) { toast(error.message); } }
 $('allow').onclick = () => approve(true); $('deny').onclick = () => approve(false); $('approval-dialog').addEventListener('cancel', event => { event.preventDefault(); approve(false); });
 window.aurora.onEvent(event => {
   switch (event.type) {
+    case 'update': renderUpdates(event.updates); break;
+    case 'appearance': $('pet-host').dataset.appearance=event.appearance; break;
     case 'files-found': {
       $('file-results').replaceChildren();
       $('file-results-note').textContent = `${event.matches.length} match${event.matches.length === 1 ? '' : 'es'}${event.truncated ? ' · Search limit reached; narrow your filename keywords.' : ''}. Select a file to show it in Explorer. File contents are not opened.`;

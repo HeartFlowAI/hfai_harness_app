@@ -1,5 +1,6 @@
 window.pet.onEvent(event => {
   const host=document.querySelector('.pet-host');
+  if(event.appearance){host.dataset.appearance=event.appearance;return;}
   if(event.voiceMode){host.dataset.voice=event.voiceMode;return;}
   host.dataset.state=event.state;
   host.dataset.phase=event.phase || '';

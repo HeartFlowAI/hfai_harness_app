@@ -4,17 +4,17 @@
 
 - Windows 10 or Windows 11, 64-bit x64. Windows 11 is the primary tested environment. Linux, macOS and Windows on ARM are not validated for this project’s native helpers.
 - Internet access for dependency downloads and cloud requests.
-- An Ollama Cloud account and your own API key, with access to a model that supports tools.
+- A model provider API key (OpenAI, Anthropic, OpenRouter or Ollama Cloud), or a local Ollama installation with a model that supports tools.
 - To run or build from source: Node.js 22 or newer, including npm. Install a supported LTS Windows x64 version from [nodejs.org](https://nodejs.org/en/download). Allow its installer to add Node.js to PATH, then open a new terminal.
 - Windows PowerShell 5.1 and the Windows .NET Framework components used by the bundled native helpers. These normally ship with Windows; PowerShell 7 alone is not the helper runtime.
 - Optional voice: a microphone, speakers or headphones, and an ElevenLabs or Fish Audio key with the API access and credits needed for recognition and speech.
 - Optional browser actions: install the browser you want to use in its standard location, or open it before asking Aurora to use it.
 
-No local Ollama server, Python, GitHub CLI or globally installed Electron is needed to run the app from a downloaded source ZIP. Git is optional unless you choose to clone the repository. Administrator access is not required to launch Aurora; native helpers run with your Windows account’s permissions.
+For cloud models, no local Ollama server, Python, GitHub CLI or globally installed Electron is needed to run the app from a downloaded source ZIP. Git is optional unless you choose to clone the repository. Administrator access is not required to launch Aurora; native helpers run with your Windows account’s permissions.
 
 ## 2. Get the project
 
-While this repository is private, sign in to GitHub with an account that has access. After it is public, signing in is not required to download its source.
+For the easiest installation, open this repository’s **Releases** page and download the versioned **Heartflow Aurora Setup** executable when a release is available. Run it under your Windows account, choose an installation folder and launch from its desktop shortcut. Node.js and npm are not needed for installed copies. A source ZIP is a different download; follow the source instructions below if no installer release is published.
 
 1. Open this repository’s GitHub page.
 2. Select **Code → Download ZIP**.
@@ -44,16 +44,22 @@ The first install downloads Electron and can take a few minutes. `npm.cmd` is us
 
 After dependencies are installed, double-click **Launch Aurora.cmd** whenever you want to run the source copy. Keep the project and its `node_modules` folder together. That launcher does not install dependencies for you.
 
-## 4. Connect Ollama Cloud
+## 4. Connect your model
 
 1. Open **Settings & connection** in Aurora.
-2. Create a key at [Ollama API keys](https://ollama.com/settings/keys).
+2. Choose OpenAI, Claude / Anthropic, OpenRouter, Ollama Cloud or Local Ollama. For cloud providers, create a key through that provider's API account. API billing can be separate from a chat website subscription.
 3. Paste it into the app’s API key field. Never paste it into source files, documentation or a public issue.
 4. Click **Load models**, select a model that supports tool calls, and save.
 5. Send a simple chat message to check the connection.
 6. Select **Choose workspace** before asking for project file operations. A project can remember its own workspace folder.
 
-API access, model availability, quotas and search access depend on your Ollama account. Choosing a model without tool support can prevent desktop actions even when chat works.
+For Local Ollama, install [Ollama](https://ollama.com/download/windows), start it and install a tool-capable model. Keep the default `http://127.0.0.1:11434` address unless the local server uses another port. Only loopback addresses are accepted, and no API key is required. Performance depends on your hardware and model size.
+
+Each provider keeps a separate model and encrypted key. OpenRouter discovery lists models advertising tools; other lists can include models unsuitable for agent actions. Choosing a model without tool support can prevent desktop actions even when chat works.
+
+Web search uses a saved Ollama Cloud key independently of the selected model. Save that connection once, then switch back to your preferred provider. Without it, the web-search tool is unavailable; local file and desktop tools remain available. Cloud voice and web search still use their own services when your model runs locally.
+
+Open **Appearance** to select Classic, Moonlight, Sunrise or Mint. These colour palettes reuse every animation across chat, notch and desktop.
 
 ## 5. Set up computer control
 
@@ -65,7 +71,7 @@ To stop, use the app’s **Stop** button, **Ctrl+Alt+Escape**, or move the point
 
 ## 6. Set up voice, if wanted
 
-1. Configure Ollama first.
+1. Configure your model connection first.
 2. Open **Voice & wake word**.
 3. Choose **ElevenLabs** or **Fish Audio** and enter your own provider key.
 4. For ElevenLabs, select a voice ID; **Load voices** can list the voices available to your key. For Fish Audio, enter a voice reference ID and choose a supported Fish model.
@@ -97,13 +103,15 @@ dist\win-unpacked\Heartflow Aurora.exe
 
 Run that executable while keeping **all** the neighbouring files and folders beside it, including `resources`. Copying only the `.exe` will break the app.
 
-To build a single portable distribution executable instead:
+To build the recommended per-user Windows installer:
 
 ```powershell
 npm.cmd run dist
 ```
 
-Find the portable `.exe` directly in `dist`. Its filename contains the project version. This is a portable application, not a conventional installed app with an automatic updater. The portable build includes the runtime, so its users do not need Node.js or npm.
+Find the versioned Setup executable in `dist`, along with `latest.yml` and its `.blockmap`. Build scripts never publish automatically. See [release workflow](RELEASES.md) for publishing update assets.
+
+For a portable executable instead, use `npm.cmd run dist:portable`. Portable and unpacked copies use manual updates. All packaged formats include the runtime; their users do not need Node.js or npm.
 
 If maintainers later provide a packaged release, download it from this repository’s **Releases** page. A source ZIP from **Code** requires the source setup steps above. Builds are currently unsigned; use a build from a source you trust and follow your organization’s Windows application policy. Do not disable Windows security protections to run it.
 
@@ -111,13 +119,17 @@ If maintainers later provide a packaged release, download it from this repositor
 
 For an unpacked build, right-click `Heartflow Aurora.exe`, select **Show more options → Send to → Desktop (create shortcut)** where available. Keep the application folder in place. Moving it afterward requires updating the shortcut.
 
-For another Windows account, copy the **entire** `win-unpacked` folder into a folder that account can read, then create its shortcut to the copied executable. Do not copy your Aurora settings, chats, provider keys or Windows profile data. The other user enters their own keys; each account has separate local settings.
+For another Windows account, preferably run the installer while signed in as that user. It creates their shortcut and enables later updates. For an unpacked copy, copy the **entire** `win-unpacked` folder into a folder that account can read, then create its shortcut to the copied executable. Do not copy your Aurora settings, chats, provider keys or Windows profile data. The other user enters their own keys; each account has separate local settings.
 
 For a portable build, share the generated portable executable rather than your development folder. The portable launcher must be allowed to extract and run its bundled components under the destination account.
 
 ## 9. Update or remove
 
-Close Aurora before replacing its application files. Download the newer source or release and repeat the corresponding install/build steps. A source update should run `npm.cmd ci` again after its lockfile changes. Close older copies before launching a newer one; older builds may not participate in the new single-instance guard.
+Installed copies quietly check shortly after opening. A circular download button appears when a published release has a higher version. Open it or **Updates**, download, then choose **Restart and update** after work and active voice conversations finish. Downloads and restarts are explicit choices. Chats and settings remain in the same userData directory.
+
+Existing portable users must install their first installer manually. For source, portable and unpacked copies, close Aurora before replacing files and repeat the corresponding setup. Run `npm.cmd ci` after source lockfile changes. Close old copies before opening a new version.
+
+To remove an installed copy, use Windows **Settings → Apps → Installed apps**. Uninstalling preserves local user data.
 
 To remove an unpacked build, close it and delete its application folder and shortcut. Local user data remains separately. It is normally stored at `%APPDATA%\Heartflow Aurora\aurora.json`; source/development launchers can use a different Electron userData name. Delete only the Aurora data directory if you also want to erase that account’s saved chats and settings. Back up anything you want to keep first.
 

@@ -65,11 +65,25 @@ A public-source copy should be exported from explicitly reviewed tracked files a
 No automatic release publishing is configured. Build and review the intended artifact before adding it to GitHub Releases; never attach a local userData folder.
 ## Dependency audit status
 
-The publication-preparation check reported eight high-severity entries in a build-tool dependency chain rooted in `http-cache-semantics` ([npm advisory](https://github.com/advisories/GHSA-ch52-4w7c-c8xp)). Updating that package and running the non-forced `npm audit fix` did not resolve the report with the current dependency constraints. No forced major upgrade or untested override has been applied.
+The 0.2.0 dependency refresh and non-forced audit fix resolved the previous `http-cache-semantics` report. The current full `npm.cmd audit` reports zero findings. This checks published dependency advisories; it is not a security certification of the app or embedded runtime. Repeat it before release.
 
-`npm.cmd audit --omit=dev` reported zero findings for declared production dependencies during that check. This does not cover the embedded Electron runtime or vendored renderer libraries, which originate from development dependencies. Review the full dependency audit and validate an available upstream fix before treating this preview as a hardened public binary release.
+The embedded Electron runtime and vendored renderer libraries originate from development dependencies. Review both the full audit and production dependency audit.
 
 ```powershell
 npm.cmd audit
 npm.cmd audit --omit=dev
 ```
+
+## Versions and build storage
+
+See [release workflow](RELEASES.md). Develop with `npm.cmd start`; package milestones rather than every edit. `dist` is the fixed output location. Keep a current build and one rollback copy only when needed. Git retains source history without duplicating the runtime.
+
+`npm.cmd run clean:builds` previews redundant legacy `dist-aurora-v*` folders. After reviewing, `npm.cmd run clean:builds -- --apply` removes eligible older folders, preserving the newest two, running apps, desktop shortcut targets, `dist`, dependencies, test output and publication checkout. Failed reference checks abort cleanup.
+
+For migration, settings and colour palettes, run:
+
+```powershell
+& .\node_modules\.bin\electron.cmd scripts\settings-smoke.js --smoke-test
+```
+
+This isolated fixture uses fake encrypted credentials and simulated model/speech replies. Provider adapter tests use synthetic streams; account-specific API access still needs a live credential check. Updater tests simulate discovery and downloads; a real installed-version upgrade requires published release assets.

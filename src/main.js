@@ -7,6 +7,9 @@ const { randomUUID } = require('node:crypto');
 if(!process.argv.includes('--smoke-test')&&!app.requestSingleInstanceLock())app.exit(0);
 app.on('second-instance',()=>{if(mainWindow&&!mainWindow.isDestroyed())showMain();});
 const provider = require('./provider');
+const connections = require('./provider-settings');
+const appearances = require('./appearances');
+let updater;
 const { tools, executeTool } = require('./tools');
 const { startPetMotion } = require('./pet-motion');
 const { searchFiles } = require('./file-search');
@@ -70,11 +73,14 @@ function save() {
   });
   return saves;
 }
-function key() {
-  if (!data.encryptedKey) throw new Error('Add your Ollama Cloud API key in Settings.');
-  try { return safeStorage.decryptString(Buffer.from(data.encryptedKey, 'base64')); }
+function key(id = data.provider) {
+  if (!connections.definitions[id]?.key) return '';
+  const encryptedKey = data.connections[id]?.encryptedKey;
+  if (!encryptedKey) throw new Error(`Add your ${connections.definitions[id].name} API key in Settings.`);
+  try { return safeStorage.decryptString(Buffer.from(encryptedKey, 'base64')); }
   catch { throw new Error('Saved key could not be unlocked. Enter it again in Settings.'); }
 }
+function redact(value, secrets) { for (const secret of secrets.filter(Boolean)) value = value.split(secret).join('[redacted]'); return value; }
 function voiceSnapshot() {
   const v = data.voice;
   return {provider:v.provider,recognizerId:v.recognizerId,recognitionEngine:v.recognitionEngine,speechLanguage:v.speechLanguage,fishModel:v.fishModel,elevenlabs:{voiceId:v.elevenlabs.voiceId,hasKey:!!v.elevenlabs.encryptedKey},fish:{voiceId:v.fish.voiceId,hasKey:!!v.fish.encryptedKey},...voiceStatus};
@@ -149,7 +155,7 @@ function askQuestion(question, signal, fileIds = '[]', choices = '[]') {
   });
 }
 function snapshot() {
-  return {mode:data.mode,projects:data.projects,activeProjectId:data.activeProjectId,computerEnabled:data.computerEnabled!==false, voice: voiceSnapshot(), model: data.model, workspace: data.workspace, searchFolders: data.searchFolders || [], searchRoots: searchRoots(), hasKey: !!data.encryptedKey, chats:sessions.summaries(data), currentId: data.currentId, messages: current().messages, busy: !!run, detached: !!petWindow, state: petState };
+  return {version:app.getVersion(),updates:updater?.snapshot(),provider:data.provider,connections:connections.snapshot(data),appearance:data.appearance,appearances:appearances.list,mode:data.mode,projects:data.projects,activeProjectId:data.activeProjectId,computerEnabled:data.computerEnabled!==false, voice: voiceSnapshot(), model: data.model, workspace: data.workspace, searchFolders: data.searchFolders || [], searchRoots: searchRoots(), hasKey: !connections.definitions[data.provider].key || !!data.connections[data.provider].encryptedKey, chats:sessions.summaries(data), currentId: data.currentId, messages: current().messages, busy: !!run, detached: !!petWindow, state: petState };
 }
 function emit(event) { if (mainWindow && !mainWindow.isDestroyed()) mainWindow.webContents.send('event', event); voiceNotch?.event(event); }
 function state(value, detail = '') {
@@ -227,7 +233,7 @@ function detach(forFile = false) {
   protect(petWindow);
   petLayer = keepOverlayOnTop(petWindow);
   petWindow.loadFile(path.join(__dirname, 'pet.html'));
-  petWindow.webContents.once('did-finish-load', () => { if (!forFile) movePet(x, area.y + area.height - PET_SIZE.height);  });
+  petWindow.webContents.once('did-finish-load', () => { petWindow.webContents.send('pet-event', {appearance:data.appearance}); if (!forFile) movePet(x, area.y + area.height - PET_SIZE.height);  });
   petWindow.on('closed', () => { clearTimeout(petShowTimer);clearTimeout(petReturnTimer);petForFile=false; petLayer?.dispose(); petLayer = null; stopMotion(); petWindow = null; pointTarget = null; emit({ type: 'pet', detached: false }); });
   emit({ type: 'pet', detached: true });
 }
@@ -250,7 +256,9 @@ function stop() { endComputer();if (run) run.abort(); computerControl?.cancel();
 async function send(text, viaVoice = false) {
   if (run) throw new Error('Aurora is already working.');
   if (typeof text !== 'string' || !text.trim() || text.length > 20000) throw new Error('Enter a message under 20,000 characters.');
-  const apiKey = key(), model = data.model;
+  const apiKey = key(), model = data.model, modelProvider = data.provider, baseUrl = data.connections[modelProvider].baseUrl;
+  const searchKey = data.connections['ollama-cloud'].encryptedKey ? key('ollama-cloud') : '';
+  const secrets = [apiKey, searchKey];
   if (!model) throw new Error('Choose a model in Settings.');
   const controller = new AbortController(); run = controller;
   const signal = controller.signal, chat = current(), workspace = data.workspace;
@@ -266,7 +274,8 @@ async function send(text, viaVoice = false) {
     let completedAction = false, failedAction = false, needsChoice = false,mediaObservation;
     for (let step = 0; step < 40; step++) {
       signal.throwIfAborted(); state('thinking', 'Aurora is thinking'); emit({ type: 'reply-start' });
-      const message = await provider.chat({ key: apiKey, model, messages: [system, ...chat.messages], tools:viaVoice?tools:tools.filter(t=>t.function.name!=='voice_reply'), signal, onText: text => emit({ type: 'token', text }) });
+      const availableTools = tools.filter(t => (viaVoice || t.function.name !== 'voice_reply') && (searchKey || t.function.name !== 'web_search'));
+      const message = await provider.chat({ provider:modelProvider,baseUrl,key: apiKey, model, messages: [system, ...chat.messages], tools:availableTools, signal, onText: text => emit({ type: 'token', text }) });
       chat.messages.push(message); await save();
       emit({ type: 'reply-end' });
       if (!message.tool_calls?.length) { state(needsChoice ? 'waiting' : completedAction && !failedAction ? 'celebrating' : 'idle', needsChoice ? 'Choose the file you meant' : 'Ready when you are'); return {content:message.content || '',followUp:/\?\s*$/.test(message.content || '')}; }
@@ -282,7 +291,7 @@ async function send(text, viaVoice = false) {
           if(name==='voice_reply'&&message.tool_calls.length!==1)throw Error('Call voice_reply alone after completing other tools.');
           result = await executeTool(name, args, { workspace, signal,
             approve: async (name, args) => { const allowed = await approve(name, args, signal); state('coding', `Using ${name}`); return allowed; },
-            search: query => provider.webSearch(apiKey, query, signal),
+            search: query => { if (!searchKey) throw Error('Web search needs an Ollama Cloud key. Save one in Settings, then switch back to your preferred model provider.'); return provider.webSearch(searchKey, query, signal); },
             computer: async args=>{if(data.computerEnabled===false)throw Error('Computer control is disabled in Settings.');await beginComputer();signal.throwIfAborted();return computerControl.action(args,signal);}, openApplication: async (name,url)=>{if(data.computerEnabled===false)throw Error('Computer control is disabled in Settings.');await beginComputer();signal.throwIfAborted();return computerControl.open(name,signal,url);},
             findFiles: query => findFiles(query, signal), revealFile: id => revealFile(id), askQuestion: (question,ids,choices) => askQuestion(question, signal,ids,choices) });
         } catch (error) { if (signal.aborted) throw error; result = { error: error.message }; }
@@ -291,8 +300,8 @@ async function send(text, viaVoice = false) {
         else if(!['voice_reply','ask_user_question'].includes(name)&&!(name==='computer'&&['observe','wait'].includes(args.action))) { completedAction = name !== 'find_files' || result.matches?.length > 0; }
         if (name === 'find_files') needsChoice = result.matches?.length > 1;
         if (name === 'reveal_file' && !result.error) needsChoice = false;
-        const content = JSON.stringify(result).slice(0, 30000).split(apiKey).join('[redacted]');
-        chat.messages.push({ role: 'tool', tool_name: name || 'unknown', content });
+        const content = redact(JSON.stringify(result).slice(0, 30000), secrets);
+        chat.messages.push({ role: 'tool', tool_name: name || 'unknown', ...(call.id ? {tool_call_id:call.id} : {}), content });
         emit({ type: 'tool-end', id: activityId, result: content }); await save();
         if(name==='voice_reply'&&viaVoice&&!result.error){
           const sleepAfterReply=mainWindow.isMinimized()&&verifiedMusicCompletion(result.completion,mediaObservation,failedAction);
@@ -312,7 +321,7 @@ async function send(text, viaVoice = false) {
       const count = chat.messages.slice(lastAssistant + 1).filter(m => m.role === 'tool').length;
       for (const call of last.tool_calls.slice(count)) chat.messages.push({ role: 'tool', tool_name: call.function?.name || 'unknown', content: '{"error":"Task interrupted before completion."}' });
     }
-    const detail = signal.aborted ? 'Stopped. Completed changes remain in your workspace.' : error.message.split(apiKey).join('[redacted]');
+    const detail = signal.aborted ? 'Stopped. Completed changes remain in your workspace.' : redact(error.message, secrets);
     state(signal.aborted ? 'idle' : 'error', detail); emit({ type: 'error', message: detail });
     return {content:signal.aborted ? '' : detail};
   } finally {
@@ -339,6 +348,14 @@ app.whenReady().then(async () => {
     data = { model: '', workspace: '', encryptedKey: '', chats: [] };
   }
   if (!Array.isArray(data.chats)) data.chats = [];
+  connections.normalize(data);
+  data.appearance = appearances.valid(data.appearance) ? data.appearance : 'classic';
+  const updatesEnabled = process.platform === 'win32' && !process.env.PORTABLE_EXECUTABLE_DIR && !process.argv.includes('--smoke-test') && require('./app-updates').installedWindowsApp(app);
+  updater = require('./app-updates').createUpdates({app,enabled:updatesEnabled,driver:updatesEnabled ? require('electron-updater').autoUpdater : null,emit,
+    busy:()=>!!run || !!pendingQuestion || !!playback || !!presentationBusy || (voiceStatus.enabled && !['off','wake'].includes(voiceStatus.status)),
+    beforeInstall:async()=>{voiceSession?.stop();await save();}
+  });
+  if (updatesEnabled) { const timer = setTimeout(()=>updater.action('check').catch(()=>{}),10000); timer.unref(); }
   sessions.normalize(data);
   data.searchFolders = Array.isArray(data.searchFolders) ? data.searchFolders.filter(p => typeof p === 'string' && p.length < 32768) : [];
   const previousVoice=data.voice || {};
@@ -390,7 +407,7 @@ app.whenReady().then(async () => {
     selected.voiceId=values.voiceId;data.voice.provider=values.provider;data.voice.recognizerId=values.recognizerId;data.voice.fishModel=values.fishModel;if(values.recognitionEngine!==undefined)data.voice.recognitionEngine=values.recognitionEngine;if(values.speechLanguage!==undefined)data.voice.speechLanguage=values.speechLanguage;await save();return voiceSnapshot();
   });
   handle('voice-voices', inputKey=>{if(inputKey && (typeof inputKey!=='string'||inputKey.length>1000))throw new Error('Invalid voice key.');const saved=data.voice.elevenlabs.encryptedKey;const secret=inputKey || (saved?safeStorage.decryptString(Buffer.from(saved,'base64')):'');return voiceProvider.listVoices(secret);});
-  handle('voice-toggle', async enabled=>{if(typeof enabled!=='boolean')throw new Error('Invalid listening switch.');if(!enabled){voiceSession.stop();return voiceSnapshot();}if(run)throw new Error('Wait for Aurora to finish before enabling listening.');key();if(!data.model)throw new Error('Choose an Ollama model first.');voiceConfig();await voiceSession.start();return voiceSnapshot();});
+  handle('voice-toggle', async enabled=>{if(typeof enabled!=='boolean')throw new Error('Invalid listening switch.');if(!enabled){voiceSession.stop();return voiceSnapshot();}if(run)throw new Error('Wait for Aurora to finish before enabling listening.');key();if(!data.model)throw new Error('Choose a model first.');voiceConfig();await voiceSession.start();return voiceSnapshot();});
   handle('voice-playback', value=>{if(!value || value.id!==playback?.id)throw new Error('Audio playback is no longer active.');playback.settle(value.error?new Error('Audio playback failed. Check your Windows output device.'):null);});
   handle('question-answer', async ({id,answer})=>{if(voiceSession.active)await voiceSession.pause();answerQuestion(id,answer);});
   handle('copy-text', text=>{if(typeof text!=='string'||text.length>500000)throw new Error('Invalid clipboard text.');clipboard.writeText(text);});
@@ -403,19 +420,33 @@ app.whenReady().then(async () => {
   handle('settings', async values => {
     if (run) throw new Error('Stop the task before changing settings.');
     if (!values || typeof values.model !== 'string' || values.model.length > 160) throw new Error('Invalid model name.');
+    const id = values.provider || data.provider;
+    if (!Object.hasOwn(connections.definitions,id)) throw Error('Invalid provider.');
+    const selected = {...data.connections[id]};
+    if (id === 'ollama-local') selected.baseUrl = connections.localUrl(values.baseUrl || selected.baseUrl);
     if (values.key) {
-      if (typeof values.key !== 'string' || values.key.length > 1000) throw new Error('Invalid key.');
+      if (typeof values.key !== 'string' || values.key.length > 1000 || !values.key.trim()) throw new Error('Invalid key.');
       if (!safeStorage.isEncryptionAvailable()) throw new Error('Windows credential encryption is unavailable.');
-      data.encryptedKey = safeStorage.encryptString(values.key.trim()).toString('base64');
+      selected.encryptedKey = safeStorage.encryptString(values.key.trim()).toString('base64');
     }
-    if (values.forgetKey === true) data.encryptedKey = '';
+    if (values.forgetKey === true) selected.encryptedKey = '';
     if(values.computerEnabled!==undefined){if(typeof values.computerEnabled!=='boolean')throw Error('Invalid computer control setting.');data.computerEnabled=values.computerEnabled;if(!values.computerEnabled)computerControl?.cancel();}
-    data.model = values.model.trim(); await save(); return snapshot();
+    selected.model = values.model.trim(); data.connections[id] = selected; data.provider = id; data.model = selected.model;
+    if (id === 'ollama-cloud') data.encryptedKey = selected.encryptedKey;
+    await save(); return snapshot();
   });
   handle('models', async inputKey => {
-    if (inputKey && (typeof inputKey !== 'string' || inputKey.length > 1000)) throw new Error('Invalid key.');
-    return provider.listModels(inputKey?.trim() || key());
+    const values = typeof inputKey === 'string' ? {key:inputKey} : inputKey || {};
+    const id = values.provider || data.provider;
+    if (!Object.hasOwn(connections.definitions,id) || (values.key && (typeof values.key !== 'string' || values.key.length > 1000))) throw new Error('Invalid connection.');
+    return provider.listModels(values.key?.trim() || key(id), undefined, {provider:id,baseUrl:values.baseUrl || data.connections[id].baseUrl});
   });
+  handle('appearance', async id => {
+    if (!appearances.valid(id)) throw Error('Unknown appearance.');
+    data.appearance = id; await save(); emit({type:'appearance',appearance:id});
+    petWindow?.webContents.send('pet-event',{appearance:id}); return snapshot();
+  });
+  handle('update-action', action => updater.action(action));
   handle('workspace', async () => {
     if (run) throw new Error('Stop the task before changing workspace.');
     const result = await dialog.showOpenDialog(mainWindow, { properties: ['openDirectory'], title: 'Choose Aurora’s workspace' });
@@ -443,6 +474,7 @@ app.whenReady().then(async () => {
   // Return the IPC acknowledgement before destroying the requesting pet window.
   handle('pet-dock', () => { setTimeout(dock, 100); }, true); handle('pet-roam', roam, true);
   createWindow();
+  emit({type:'appearance',appearance:data.appearance});
 });
 app.on('window-all-closed', () => app.quit());
 app.on('before-quit', () => { voiceSession?.stop();playback?.settle(new Error('App closed.'));stop();globalShortcut.unregisterAll();inputOverlay?.dispose(); clearTimeout(reactionTimer);clearTimeout(petReturnTimer);clearTimeout(petShowTimer); presentation?.cancel();voiceNotch?.dispose(); });

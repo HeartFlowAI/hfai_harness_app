@@ -1,0 +1,12 @@
+const fs=require('node:fs'),path=require('node:path'),crypto=require('node:crypto');
+const root=path.resolve(__dirname,'..'),dist=path.join(root,'dist'),version=require('../package.json').version;
+const metadata=fs.readFileSync(path.join(dist,'latest.yml'),'utf8');
+const field=name=>metadata.match(new RegExp(`^${name}: (.+)$`,'m'))?.[1].trim();
+const filename=field('path');
+if(field('version')!==version || !filename || filename!==path.basename(filename) || !filename.endsWith(`${version}.exe`))throw Error('Release version or installer filename does not match.');
+const bytes=fs.readFileSync(path.join(dist,filename));
+if(crypto.createHash('sha512').update(bytes).digest('base64')!==field('sha512'))throw Error('Installer hash does not match the update metadata. Rebuild before publishing.');
+if(!fs.statSync(path.join(dist,filename+'.blockmap')).isFile())throw Error('Installer blockmap is missing.');
+const config=fs.readFileSync(path.join(dist,'win-unpacked','resources','app-update.yml'),'utf8');
+if(!config.includes('owner: HeartFlowAI')||!config.includes('repo: hfai_harness_app'))throw Error('Update destination is incorrect.');
+console.log(`Verified Aurora ${version}: installer, update hash, blockmap and GitHub destination match. Nothing was published.`);

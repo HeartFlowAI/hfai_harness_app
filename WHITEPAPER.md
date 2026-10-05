@@ -1,14 +1,16 @@
 # Aurora: A Voice-First Windows Agent Companion
 
 **Heartflow AI · Project Whitepaper**  
-**Document version:** 1.0  
-**Date:** October 3, 2026  
-**Implementation baseline:** Aurora prototype, build v18
+**Document version:** 1.1
+
+**Date:** October 5, 2026
+
+**Implementation baseline:** Aurora 0.2.0, local release preparation
 **Status:** Working Windows prototype; not a production security certification or performance benchmark.
 
 ## Abstract
 
-Aurora is a Windows AI agent harness that connects a user's chosen Ollama Cloud model to practical desktop tools through a simple branded interface. An animated character communicates activity, while optional voice recognition and speech output allow the user to request work, answer clarifying questions, and receive short spoken results. A compact top-center notch supports these conversations while the main application is minimized.
+Aurora is a Windows AI agent harness that connects a user's chosen model to practical desktop tools through a simple branded interface. Connections support OpenAI, Claude / Anthropic, OpenRouter, Ollama Cloud and local Ollama. An animated character communicates activity, while optional voice recognition and speech output allow the user to request work, answer clarifying questions, and receive short spoken results. A compact top-center notch supports these conversations while the main application is minimized.
 
 The project combines streaming chat, tool execution, filename search, workspace operations, and bounded interaction with supported Windows applications. Its distinctive experience is a visible companion that can leave the conversation interface, appear beside a verified file in Explorer, and show what the agent is doing. Real computer input uses a light-pink animated pointer and a small action display.
 
@@ -32,7 +34,7 @@ The goal is minimal interaction after initial setup. API connection, voice selec
 
 | Area | Implemented behavior |
 | --- | --- |
-| Model connection | User-supplied Ollama Cloud API key, model listing, streaming chat, and tool calls. |
+| Model connection | Separate saved cloud or local connections, model listing, streaming replies and provider-specific tool adapters. |
 | Conversation | Saved chats, Markdown rendering, activity feed, task cancellation, and clarifying questions. |
 | Modes and projects | Normal and Aurora Code sessions, project grouping, and a remembered workspace folder per project. |
 | Session library | Local search across titles and user/assistant message content, cross-project results, and confirmed session deletion. |
@@ -57,7 +59,7 @@ flowchart TD
     User[User: voice or text] --> UI[Chat, voice notch, and companion]
     UI --> Main[Electron main process]
     Main --> Agent[Sequential agent loop]
-    Agent <--> Model[Ollama Cloud]
+    Agent <--> Model[Selected cloud or local model]
     Agent --> Tools[Validated tool dispatcher]
     Tools --> Files[Workspace and filename tools]
     Tools --> Search[Web search]
@@ -173,7 +175,7 @@ These results demonstrate specific behaviors under controlled conditions. They a
 - Long conversations have no automatic context compaction and can exceed a model's context limit.
 - Speech recognition and cloud API permissions require verification with the user's microphone and accounts.
 - Overlay recording compatibility is not verified for every recorder or fullscreen mode.
-- Distribution currently uses unsigned Windows builds without a production installer or automatic updater.
+- Windows builds are unsigned. The installer and GitHub Release updater are implemented, but a live installed-version upgrade needs published assets and separate validation. New provider adapters are tested with fixtures; account-specific access and model reliability need live validation.
 
 ## 10. Proposed Roadmap
 
@@ -187,7 +189,7 @@ The following items are proposals, not delivered features or dated commitments.
 
 **Observation:** Evaluate optional visual observation for inaccessible interfaces, with explicit data handling and bounded execution policies before expanding desktop coverage.
 
-**Distribution:** Introduce signed releases, an installer and updater, versioned release notes, dependency maintenance, and support diagnostics that avoid collecting secrets.
+**Distribution:** Validate installed upgrades and signed releases, maintain dependencies, and add support diagnostics that avoid collecting secrets. Version 0.2.0 adds an installer, explicit download/restart controls and versioned release notes; source pushes alone do not publish updates.
 
 **Experience:** Refine character transitions, accessibility and reduced-motion behavior, and voice-first onboarding while maintaining one coherent Aurora across surfaces.
 
@@ -199,11 +201,13 @@ Source code, native helpers, tests, documentation, and character assets form the
 
 ## 12. Implementation References
 
-The claims in this document are based on the local v18 implementation and its recorded checks. These files provide a direct path from the product description to the code:
+The original desktop and voice checks apply to the v18 baseline. Version 0.2.0 additionally has provider/update unit fixtures and Electron settings checks covering migration, encrypted credentials and colour palettes across the main app, notch and desktop pet. These checks do not establish live provider-account access or published update success. These files provide a direct path from the product description to the code:
 
 - [README.md](README.md): setup, supported workflows, testing, and limitations.
 - [src/main.js](src/main.js): orchestration, approvals, local persistence, and interface coordination.
-- [src/provider.js](src/provider.js): Ollama streaming requests and search.
+- [src/provider.js](src/provider.js) and [src/provider-adapters.js](src/provider-adapters.js): provider streaming requests, tool conversion and search.
+- [src/app-updates.js](src/app-updates.js): installed release checks and explicit update actions.
+- [src/appearances.js](src/appearances.js): colour palette registry reusing existing animation artwork.
 - [src/tools.js](src/tools.js): tool definitions, validation, and execution.
 - [src/computer-control.js](src/computer-control.js): application reuse and bounded browser observations.
 - [src/native/desktop-control.cs](src/native/desktop-control.cs) and [src/native/legacy-accessibility.cs](src/native/legacy-accessibility.cs): Windows observation and input.

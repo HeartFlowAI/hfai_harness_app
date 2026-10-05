@@ -1,9 +1,9 @@
 {
   "name": "heartflow-aurora",
   "productName": "Heartflow Aurora",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "private": true,
-  "description": "A minimal Windows agent companion powered by Ollama Cloud",
+  "description": "A Windows AI companion with voice, desktop tools and a choice of model providers",
   "main": "src/main.js",
   "scripts": {
     "start": "electron .",
@@ -11,8 +11,11 @@
     "check": "node scripts/check.js",
     "vendor": "node scripts/vendor.js",
     "animations": "electron scripts/animations.js",
-    "pack": "electron-builder --dir",
-    "dist": "electron-builder --win portable"
+    "pack": "electron-builder --dir --publish never",
+    "dist": "electron-builder --win nsis --publish never",
+    "dist:portable": "electron-builder --win portable --publish never",
+    "clean:builds": "node scripts/clean-builds.js",
+    "verify:release": "node scripts/verify-release.js"
   },
   "devDependencies": {
     "dompurify": "^3.4.16",
@@ -34,13 +37,30 @@
       "output": "dist"
     },
     "win": {
-      "target": "portable",
+      "target": "nsis",
       "signAndEditExecutable": true,
       "icon": "src/assets/brand/heartflow.ico",
       "signExecutable": false
+    },
+    "nsis": {
+      "artifactName": "Heartflow-Aurora-Setup-${version}.${ext}",
+      "oneClick": false,
+      "perMachine": false,
+      "allowElevation": false,
+      "allowToChangeInstallationDirectory": true,
+      "deleteAppDataOnUninstall": false,
+      "createDesktopShortcut": true,
+      "shortcutName": "Aurora - Heartflow AI"
+    },
+    "publish": {
+      "provider": "github",
+      "owner": "HeartFlowAI",
+      "repo": "hfai_harness_app",
+      "releaseType": "release"
     }
   },
   "dependencies": {
+    "electron-updater": "^6.8.9",
     "ws": "^8.22.0"
   },
   "author": "Heartflow AI"

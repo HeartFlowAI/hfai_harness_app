@@ -3,6 +3,7 @@ const labels={off:'Microphone off',starting:'Startingâ€¦',wake:'Listening for â€
 window.notch.onVisibility(visible=>el('notch').classList.toggle('is-visible',visible));
 window.notch.onEvent(value=>{
   const host=el('pet-host'),status=value.voice.status;approval=value.approval;
+  host.dataset.appearance=value.appearance||'classic';
   el('notch').dataset.expanded=String(value.expanded);el('notch').dataset.status=status;
   if(value.visible)requestAnimationFrame(()=>el('notch').classList.add('is-visible'));
   host.dataset.state=value.speechPose||value.state;host.dataset.voice=status;

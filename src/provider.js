@@ -12,8 +12,12 @@ async function request(endpoint, key, body, signal, fetcher = fetch) {
   return response;
 }
 
-async function chat({ key, model, messages, tools, signal, onText, fetcher }) {
-  const response = await request('chat', key, { model, messages, tools, stream: true }, signal, fetcher);
+async function chat({ key, model, messages, tools, signal, onText, fetcher, provider = 'ollama-cloud', baseUrl }) {
+  if (!['ollama-cloud', 'ollama-local'].includes(provider)) return require('./provider-adapters').chat({ key, model, messages, tools, signal, onText, fetcher, provider });
+  const body = { model, messages: require('./provider-adapters').ollamaMessages(messages), tools, stream: true };
+  const response = provider === 'ollama-local'
+    ? await require('./provider-adapters').http(`${require('./provider-settings').localUrl(baseUrl)}/api/chat`, { body, signal, fetcher, label: 'Local Ollama' })
+    : await request('chat', key, body, signal, fetcher);
   const reader = response.body.getReader();
   const decoder = new TextDecoder();
   let pending = '', content = '', thinking = '', calls = [], complete = false;
@@ -38,10 +42,11 @@ async function chat({ key, model, messages, tools, signal, onText, fetcher }) {
     pending += decoder.decode(); parse(pending);
     if (!complete) throw new Error('Ollama stream ended early. Please retry.');
     return { role: 'assistant', content, ...(thinking ? { thinking } : {}), ...(calls.length ? { tool_calls: calls } : {}) };
-  } finally { reader.releaseLock(); }
+  } finally { await reader.cancel().catch(() => {}); reader.releaseLock(); }
 }
 
-async function listModels(key, signal) {
+async function listModels(key, signal, options = {}) {
+  if (options.provider && options.provider !== 'ollama-cloud') return require('./provider-adapters').listModels({ ...options, key, signal });
   const response = await request('tags', key, null, signal);
   const body = await response.json();
   return (body.models || []).map(m => m.name).filter(Boolean);
