@@ -46,12 +46,12 @@ After dependencies are installed, double-click **Launch Aurora.cmd** whenever yo
 
 ## 4. Connect your model
 
-1. Open **Settings & connection** in Aurora.
+1. Open **Settings → Model & connection** in Aurora.
 2. Choose OpenAI, Claude / Anthropic, OpenRouter, Ollama Cloud or Local Ollama. For cloud providers, create a key through that provider's API account. API billing can be separate from a chat website subscription.
 3. Paste it into the app’s API key field. Never paste it into source files, documentation or a public issue.
 4. Click **Load models**, select a model that supports tool calls, and save.
 5. Send a simple chat message to check the connection.
-6. Select **Choose workspace** before asking for project file operations. A project can remember its own workspace folder.
+6. Select **Choose folder** in the session toolbar before asking for project file operations. A project can remember its own workspace folder.
 
 For Local Ollama, install [Ollama](https://ollama.com/download/windows), start it and install a tool-capable model. Keep the default `http://127.0.0.1:11434` address unless the local server uses another port. Only loopback addresses are accepted, and no API key is required. Performance depends on your hardware and model size.
 
@@ -59,11 +59,11 @@ Each provider keeps a separate model and encrypted key. OpenRouter discovery lis
 
 Web search uses a saved Ollama Cloud key independently of the selected model. Save that connection once, then switch back to your preferred provider. Without it, the web-search tool is unavailable; local file and desktop tools remain available. Cloud voice and web search still use their own services when your model runs locally.
 
-Open **Appearance** to select Classic, Moonlight, Sunrise or Mint. These colour palettes reuse every animation across chat, notch and desktop.
+Open **Settings → Appearance** to select Classic, Moonlight or Sunrise palettes, or Cyber, Dark and Cozy outfits created by Jaymie. Your selection follows Aurora across chat, notch and desktop.
 
 ## 5. Set up computer control
 
-In **Settings & connection**, make sure **Allow Aurora to use my mouse and keyboard** is enabled.
+In **Settings → Model & connection**, make sure **Allow Aurora to use my mouse and keyboard** is enabled.
 
 Install or open a supported browser: **Opera, Brave, Chrome, Edge or Firefox**. For example, ask “Open Brave and go to YouTube.” Aurora restores an existing window when possible and uses observed page controls for subsequent actions. Avoid moving the mouse or switching applications during an action. Elevated/admin windows and inaccessible controls may not be controllable.
 
@@ -125,7 +125,7 @@ For a portable build, share the generated portable executable rather than your d
 
 ## 9. Update or remove
 
-Installed copies quietly check shortly after opening. A circular download button appears when a published release has a higher version. Open it or **Updates**, download, then choose **Restart and update** after work and active voice conversations finish. Downloads and restarts are explicit choices. Chats and settings remain in the same userData directory.
+Installed copies quietly check shortly after opening. A circular download button appears when a published release has a higher version. Open it beside Settings, or use **Settings → Updates**, download, then choose **Restart and update** after work and active voice conversations finish. Downloads and restarts are explicit choices. Chats and settings remain in the same userData directory.
 
 Existing portable users must install their first installer manually. For source, portable and unpacked copies, close Aurora before replacing files and repeat the corresponding setup. Run `npm.cmd ci` after source lockfile changes. Close old copies before opening a new version.
 

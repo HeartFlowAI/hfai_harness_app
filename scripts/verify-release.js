@@ -1,5 +1,5 @@
 const fs=require('node:fs'),path=require('node:path'),crypto=require('node:crypto');
-const root=path.resolve(__dirname,'..'),dist=path.join(root,'dist'),version=require('../package.json').version;
+const root=path.resolve(__dirname,'..'),dist=path.resolve(root,process.argv[2]||'dist'),version=require('../package.json').version;
 const metadata=fs.readFileSync(path.join(dist,'latest.yml'),'utf8');
 const field=name=>metadata.match(new RegExp(`^${name}: (.+)$`,'m'))?.[1].trim();
 const filename=field('path');

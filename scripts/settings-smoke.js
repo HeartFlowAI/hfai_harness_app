@@ -15,14 +15,19 @@ const pause=ms=>new Promise(resolve=>setTimeout(resolve,ms));
 async function until(fn){for(let i=0;i<150;i++){if(await fn())return;await pause(50);}throw Error('Settings smoke timed out');}
 app.whenReady().then(async()=>{
  try{
-  await fs.mkdir(profile,{recursive:true});await fs.writeFile(path.join(profile,'aurora.json'),JSON.stringify({model:'legacy-model',encryptedKey:safeStorage.encryptString('legacy-fixture-key').toString('base64'),computerEnabled:false,currentId:'legacy',chats:[{id:'legacy',title:'Keep my chat',messages:[{role:'user',content:'Keep this conversation'}]}]}));
+  await fs.mkdir(profile,{recursive:true});await fs.writeFile(path.join(profile,'aurora.json'),JSON.stringify({appearance:'mint',model:'legacy-model',encryptedKey:safeStorage.encryptString('legacy-fixture-key').toString('base64'),computerEnabled:false,currentId:'legacy',chats:[{id:'legacy',title:'Keep my chat',messages:[{role:'user',content:'Keep this conversation'}]}]}));
   const disable=app.disableHardwareAcceleration;app.disableHardwareAcceleration=()=>{};
   require(path.join(sourceRoot,'main'));app.disableHardwareAcceleration=disable;let win;
   await until(()=>{win=BrowserWindow.getAllWindows().find(w=>w.webContents.getURL().endsWith('index.html'));return win&&!win.webContents.isLoading();});
   const js=code=>win.webContents.executeJavaScript(code),load=async()=>(await js('window.aurora.load()')).value;
-  await until(()=>js('typeof view!=="undefined"'));let value=await load();assert.equal(value.provider,'ollama-cloud');assert.equal(value.model,'legacy-model');assert.equal(value.messages[0].content,'Keep this conversation');assert.equal(value.hasKey,true);
+  await until(()=>js('typeof view!=="undefined"'));let value=await load();assert.equal(value.provider,'ollama-cloud');assert.equal(value.model,'legacy-model');assert.equal(value.messages[0].content,'Keep this conversation');assert.equal(value.hasKey,true);assert.equal(value.appearance,'classic');
   const errors=[];win.webContents.on('console-message',(_event,level,message)=>{if(level>=3)errors.push(message);});
-  await js('document.getElementById("settings-open").click();document.getElementById("llm-provider").value="openai";document.getElementById("llm-provider").dispatchEvent(new Event("change"))');
+  assert.equal(await js('document.querySelectorAll(".sidebar-bottom [data-settings-section]").length'),0);
+  assert.equal(await js('document.getElementById("update-download").closest(".sidebar-footer")!==null'),true);
+  await js('document.getElementById("preferences-open").click()');assert.equal(await js('document.getElementById("preferences-dialog").open'),true);
+  await pause(150);await fs.writeFile(path.join(output,'settings-menu.png'),(await win.webContents.capturePage()).toPNG());
+  await js('document.getElementById("settings-open").click()');assert.equal(await js('document.getElementById("preferences-dialog").open'),false);assert.equal(await js('document.getElementById("settings-dialog").open'),true);
+  await js('document.getElementById("llm-provider").value="openai";document.getElementById("llm-provider").dispatchEvent(new Event("change"))');
   assert.equal(await js('document.getElementById("api-key").value'),'');
   await js('document.getElementById("api-key").value="openai-fixture-key";document.getElementById("fetch-models").click()');
   await until(()=>js('document.getElementById("models").options.length===1'));assert.equal(connection.provider,'openai');assert.equal(connection.key,'openai-fixture-key');
@@ -33,7 +38,7 @@ app.whenReady().then(async()=>{
   assert.equal(await js('document.getElementById("api-key").hidden'),true);assert.equal(await js('document.getElementById("local-url").hidden'),false);
   await js('document.getElementById("model").value="local-tools-model";document.getElementById("settings-form").requestSubmit()');await until(async()=>(await load()).provider==='ollama-local');assert.equal((await load()).hasKey,true);
   assert.equal((await js('window.aurora.send("Say hello locally")')).ok,true);assert.equal(connection.key,'');assert.equal(connection.provider,'ollama-local');
-  await js('document.getElementById("appearance-open").click()');assert.equal(await js('document.querySelectorAll(".appearance-card").length'),7);
+  await js('document.getElementById("appearance-open").click()');assert.equal(await js('document.querySelectorAll(".appearance-card").length'),6);
   for(const id of ['cyber','dark','cozy']){
     assert.equal(await js(`document.querySelector('.skin-preview[data-appearance="${id}"]').parentElement.querySelector('.appearance-credit').textContent`),'Created by Jaymie');
     await js(`document.querySelector('.skin-preview[data-appearance="${id}"]').parentElement.click()`);
@@ -64,6 +69,9 @@ app.whenReady().then(async()=>{
   const bad=await js('window.aurora.appearance("unknown")');assert.equal(bad.ok,false);
   win.restore();await js('document.getElementById("updates-open").click()');assert.equal(await js('document.getElementById("update-primary").disabled'),true);await js('document.getElementById("updates-close").click()');
   win.setSize(950,680);await pause(150);const fits=await js('document.querySelector(".sidebar-bottom").getBoundingClientRect().bottom<=innerHeight');assert.ok(fits);assert.deepEqual(errors,[]);
+  const chatHeight=await js('document.getElementById("chats").getBoundingClientRect().height');assert.ok(chatHeight>=150,`Session area only ${chatHeight}px: ${output}`);
+  assert.ok(await js('document.getElementById("session-menu").getBoundingClientRect().right<=innerWidth'));
+  await js('document.getElementById("toast").hidden=true');await fs.writeFile(path.join(output,'clean-sidebar.png'),(await win.webContents.capturePage()).toPNG());
   const saved=await fs.readFile(path.join(profile,'aurora.json'),'utf8');assert.ok(!saved.includes('fixture-key'));assert.equal(JSON.parse(saved).appearance,'cozy');
   await fs.writeFile(path.join(output,'result.json'),JSON.stringify({passed:true,legacyMigration:true,encryptedKeys:true,providerSwitching:true,localChat:true,appearanceMainPetNotch:true,compactLayout:true}));console.log('Settings smoke passed: '+output);app.exit(0);
  }catch(error){console.error(error);app.exit(1);}

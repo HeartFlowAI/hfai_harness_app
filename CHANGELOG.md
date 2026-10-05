@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.2.3 — A calmer workspace
+
+- Removed Mint from the appearance picker. Previously saved Mint selections fall back to Classic.
+- Grouped connection, voice, appearance and update settings into one Settings menu; kept listening directly available in the sidebar.
+- Moved workspace selection into the session toolbar and session deletion into its options menu.
+- Moved the available-update download button beside Settings, freeing the chat header.
+- Reduced sidebar clutter, shortened workspace labels with full paths on hover, and made the six appearance cards fit in a compact grid.
+
 ## 0.2.2 — Community appearances
 
 - Added Cyber, Dark and Cozy community appearances, with “Created by Jaymie” beneath each name.

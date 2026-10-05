@@ -39,7 +39,7 @@ function render(data) {
   window.renderAuroraVoice?.(data.voice);
   $('pet-host').dataset.state = data.state || 'idle'; $('pet-caption').textContent = captions[data.state] || captions.idle;
   $('model-label').textContent = data.model || `${data.connections[data.provider].name} · not connected`;
-  $('workspace-label').textContent = data.workspace || 'No folder selected'; $('workspace-label').title = data.workspace || '';
+  $('workspace-label').textContent = data.workspace ? data.workspace.split(/[\\/]/).filter(Boolean).pop() || data.workspace : 'Choose folder'; $('workspace').title = data.workspace || 'Choose workspace folder';
   renderLibrary();
   if (!data.busy) renderMessages(data.messages,changedChat);
 }
@@ -69,7 +69,7 @@ for(const [id,mode] of [['mode-normal','normal'],['mode-code','code']])$(id).onc
 $('project-add').onclick=()=>{$('project-name').value='';$('project-dialog').showModal();$('project-name').focus();};$('project-close').onclick=()=>$('project-dialog').close();
 $('project-form').onsubmit=event=>{event.preventDefault();action(async()=>{const data=await call(window.aurora.createProject($('project-name').value));$('project-dialog').close();clearSearch();render(data);renderHistory();})()};
 $('session-project').onchange=action(async()=>{render(await call(window.aurora.sessionProject($('session-project').value||null)));renderHistory();});
-$('session-delete').onclick=()=>{deletingId=view.currentId;$('delete-session-description').textContent=view.chats.find(c=>c.id===deletingId)?.title||'Current session';$('delete-session-dialog').showModal();};$('delete-session-cancel').onclick=()=>$('delete-session-dialog').close();
+$('session-delete').onclick=()=>{$('session-menu').open=false;deletingId=view.currentId;$('delete-session-description').textContent=view.chats.find(c=>c.id===deletingId)?.title||'Current session';$('delete-session-dialog').showModal();};$('delete-session-cancel').onclick=()=>$('delete-session-dialog').close();
 $('delete-session-confirm').onclick=action(async()=>{const data=await call(window.aurora.deleteSession(deletingId));$('delete-session-dialog').close();clearSearch();render(data);renderHistory();toast('Session deleted.');});
 function renderMessages(messages,changedChat=false) { const follow=changedChat||pinned(),top=$('messages').scrollTop;$('messages').replaceChildren(); for (const m of messages) { if (['user', 'assistant'].includes(m.role) && m.content) addMessage(m.role, m.content,false); if(m.role==='tool'&&m.tool_name==='ask_user_question'){try{const result=JSON.parse(m.content);if(result.question&&result.answer){addMessage('assistant',result.question,false);addMessage('user',result.answer,false);}}catch{}} } $('welcome').hidden = messages.some(m => m.role === 'user'); if(follow)scroll();else $('messages').scrollTop=top; }
 function renderHistory() { $('activity').replaceChildren(); const messages = view.messages; for (let i = 0; i < messages.length; i++) { const m = messages[i]; if (m.role === 'tool') activity(m.tool_name, {}, m.content); } if (!$('activity').children.length) { const empty = document.createElement('div'); empty.className = 'activity-empty'; empty.textContent = 'Our next adventure starts with your first message.'; $('activity').append(empty); } }
@@ -107,6 +107,15 @@ function selectProvider() {
 }
 function connectionValues() { return {provider:$('llm-provider').value,key:$('api-key').value,model:$('model').value,baseUrl:$('local-url').value}; }
 function openSettings() { $('llm-provider').value=view.provider;selectProvider();$('computer-enabled').checked=view.computerEnabled!==false;renderSearchFolders();$('settings-dialog').showModal(); }
+$('preferences-open').onclick=()=>{
+  $('preferences-model').textContent=view.connections[view.provider].name+(view.model?` · ${view.model}`:' · Not connected');
+  $('preferences-appearance').textContent=view.appearances.find(item=>item.id===view.appearance)?.name||'Classic';
+  $('preferences-dialog').showModal();
+};
+$('preferences-close').onclick=()=>$('preferences-dialog').close();
+$('preferences-dialog').addEventListener('click',event=>{if(event.target.closest('[data-settings-section]'))$('preferences-dialog').close();},true);
+document.addEventListener('click',event=>{if(!event.target.closest('#session-menu'))$('session-menu').open=false;});
+document.addEventListener('keydown',event=>{if(event.key==='Escape')$('session-menu').open=false;});
 $('llm-provider').onchange = selectProvider;
 $('settings-open').onclick = openSettings; $('settings-close').onclick = () => $('settings-dialog').close();
 $('fetch-models').onclick = async () => { const values=connectionValues();$('fetch-models').disabled = true; $('settings-status').textContent = 'Checking your connection…'; try { const models = await call(window.aurora.models(values));if($('llm-provider').value!==values.provider)return; $('models').replaceChildren(); for (const model of models) { const option = document.createElement('option'); option.value = model; $('models').append(option); } $('settings-status').textContent = `Connected. ${models.length} models available. Choose a tool-capable model.`; } catch (error) { $('settings-status').textContent = error.message; } finally { $('fetch-models').disabled = false; } };
@@ -128,6 +137,7 @@ function renderUpdates(value) {
   if (!value) return; updateState=value;
   const descriptions={idle:`You’re using Aurora ${value.currentVersion}.`,checking:'Checking for a little something new…',current:`Aurora ${value.currentVersion} is up to date.`,available:`Aurora ${value.version} is ready to download.`,downloading:`Downloading Aurora ${value.version} · ${Math.round(value.percent)}%`,ready:`Aurora ${value.version} is ready. Restart to finish updating.`,error:value.error,development:'This copy uses manual updates. Install Aurora with the Windows installer to receive updates here.'};
   $('update-description').textContent=descriptions[value.status]||'';
+  $('preferences-update').textContent=['available','downloading','ready'].includes(value.status)?descriptions[value.status]:`Aurora ${value.currentVersion} · Updates & version`;
   $('update-progress').hidden=value.status!=='downloading';$('update-progress').value=value.percent;
   $('update-primary').textContent=value.status==='ready'?'Restart and update':value.status==='available'?'Download update':'Check for updates';
   $('update-primary').disabled=['development','checking','downloading'].includes(value.status);
