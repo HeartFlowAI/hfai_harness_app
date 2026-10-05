@@ -33,22 +33,38 @@ app.whenReady().then(async()=>{
   assert.equal(await js('document.getElementById("api-key").hidden'),true);assert.equal(await js('document.getElementById("local-url").hidden'),false);
   await js('document.getElementById("model").value="local-tools-model";document.getElementById("settings-form").requestSubmit()');await until(async()=>(await load()).provider==='ollama-local');assert.equal((await load()).hasKey,true);
   assert.equal((await js('window.aurora.send("Say hello locally")')).ok,true);assert.equal(connection.key,'');assert.equal(connection.provider,'ollama-local');
-  await js('document.getElementById("appearance-open").click()');assert.equal(await js('document.querySelectorAll(".appearance-card").length'),4);
+  await js('document.getElementById("appearance-open").click()');assert.equal(await js('document.querySelectorAll(".appearance-card").length'),7);
+  for(const id of ['cyber','dark','cozy']){
+    assert.equal(await js(`document.querySelector('.skin-preview[data-appearance="${id}"]').parentElement.querySelector('.appearance-credit').textContent`),'Created by Jaymie');
+    await js(`document.querySelector('.skin-preview[data-appearance="${id}"]').parentElement.click()`);
+    await until(()=>js(`document.getElementById('pet-host').dataset.appearance==='${id}'&&document.getElementById('pet-host').classList.contains('community-art')`));
+    assert.equal((await load()).appearance,id);
+    for(const state of ['idle','thinking','waiting','coding','browsing','walking','climbing','teleporting','celebrating','pointing','error']){
+      await js(`document.getElementById('pet-host').dataset.state='${state}'`);await pause(80);
+      await until(()=>js(`(()=>{const canvas=document.querySelector('#pet-host canvas');const data=canvas.getContext('2d').getImageData(0,0,canvas.width,canvas.height).data;return data.some((value,index)=>index%4===3&&value>0);})()`));
+      assert.equal(await js('getComputedStyle(document.querySelector("#pet-host .aurora-reference")).display'),'none');
+    }
+    await fs.writeFile(path.join(output,id+'.png'),(await win.webContents.capturePage()).toPNG());
+  }
+  await js('document.getElementById("pet-host").dataset.state="idle"');
   await js('document.querySelectorAll(".appearance-card")[1].click()');await until(()=>js('document.getElementById("pet-host").dataset.appearance==="moonlight"'));assert.equal((await load()).appearance,'moonlight');
   assert.match(await js('getComputedStyle(document.querySelector(".aurora-art")).filter'),/hue-rotate/);
   win.showInactive();await pause(200);await fs.writeFile(path.join(output,'appearance.png'),(await win.webContents.capturePage()).toPNG());
+  await js('document.querySelector(".skin-preview[data-appearance=cozy]").parentElement.click();document.querySelector(".skin-preview[data-appearance=cozy]").scrollIntoView({block:"end"})');
+  await until(()=>js('document.getElementById("pet-host").dataset.appearance==="cozy"'));await pause(200);
+  await fs.writeFile(path.join(output,'community-picker.png'),(await win.webContents.capturePage()).toPNG());
   await js('document.getElementById("appearance-close").click();window.aurora.pet("detach")');let pet;
   await until(()=>{pet=BrowserWindow.getAllWindows().find(w=>w.webContents.getURL().endsWith('pet.html'));return pet&&!pet.webContents.isLoading();});
-  await until(()=>pet.webContents.executeJavaScript('document.querySelector(".pet-host").dataset.appearance==="moonlight"'));await js('window.aurora.pet("dock")');await until(()=>pet.isDestroyed());
+  await until(()=>pet.webContents.executeJavaScript('document.querySelector(".pet-host").dataset.appearance==="cozy"&&document.querySelector(".pet-host").classList.contains("community-art")'));await js('window.aurora.pet("dock")');await until(()=>pet.isDestroyed());
   await js('window.aurora.voiceSettings({provider:"elevenlabs",key:"voice-fixture-key",voiceId:"voice123",recognizerId:"",fishModel:"s2.1-pro"})');
   await js('(()=>{const Original=window.Audio;window.Audio=function(url){const audio=new Original(url);audio.muted=true;return audio;};return true;})()');
   await js('window.aurora.voiceToggle(true)');win.minimize();recognized({type:'wake'});
   let notch;await until(()=>{notch=BrowserWindow.getAllWindows().find(w=>w.webContents.getURL().endsWith('notch.html'));return notch?.isVisible();});
-  await until(()=>notch.webContents.executeJavaScript('document.getElementById("pet-host").dataset.appearance==="moonlight"'));await js('window.aurora.voiceToggle(false)');
+  await until(()=>notch.webContents.executeJavaScript('document.getElementById("pet-host").dataset.appearance==="cozy"&&document.getElementById("pet-host").classList.contains("community-art")'));await js('window.aurora.voiceToggle(false)');
   const bad=await js('window.aurora.appearance("unknown")');assert.equal(bad.ok,false);
   win.restore();await js('document.getElementById("updates-open").click()');assert.equal(await js('document.getElementById("update-primary").disabled'),true);await js('document.getElementById("updates-close").click()');
   win.setSize(950,680);await pause(150);const fits=await js('document.querySelector(".sidebar-bottom").getBoundingClientRect().bottom<=innerHeight');assert.ok(fits);assert.deepEqual(errors,[]);
-  const saved=await fs.readFile(path.join(profile,'aurora.json'),'utf8');assert.ok(!saved.includes('fixture-key'));assert.equal(JSON.parse(saved).appearance,'moonlight');
+  const saved=await fs.readFile(path.join(profile,'aurora.json'),'utf8');assert.ok(!saved.includes('fixture-key'));assert.equal(JSON.parse(saved).appearance,'cozy');
   await fs.writeFile(path.join(output,'result.json'),JSON.stringify({passed:true,legacyMigration:true,encryptedKeys:true,providerSwitching:true,localChat:true,appearanceMainPetNotch:true,compactLayout:true}));console.log('Settings smoke passed: '+output);app.exit(0);
  }catch(error){console.error(error);app.exit(1);}
 });

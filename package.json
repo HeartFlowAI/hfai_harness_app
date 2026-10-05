@@ -1,7 +1,7 @@
 {
   "name": "heartflow-aurora",
   "productName": "Heartflow Aurora",
-  "version": "0.2.1",
+  "version": "0.2.2",
   "private": true,
   "description": "A Windows AI companion with voice, desktop tools and a choice of model providers",
   "main": "src/main.js",

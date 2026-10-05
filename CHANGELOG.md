@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.2.2 — Community appearances
+
+- Added Cyber, Dark and Cozy community appearances, with “Created by Jaymie” beneath each name.
+- Each outfit has its own transparent pixel-art pose sheet for idle, thinking, waiting, coding, browsing, movement, celebrating and errors. Teleport effects use the selected outfit; pointing uses its reaching pose.
+- Selected outfits follow Aurora between the main app, voice notch and desktop companion.
+
 ## 0.2.1 — Shutdown and single-instance fix
 
 - Closing the main window shuts down the full app, including hidden action displays, pet/notch windows, speech, native helpers and timers.

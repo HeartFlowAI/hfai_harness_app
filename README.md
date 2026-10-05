@@ -67,7 +67,7 @@ npm.cmd start
 
 Open **Settings & connection**, choose **OpenAI**, **Claude / Anthropic**, **OpenRouter**, **Ollama Cloud** or **Local Ollama**, and enter the matching API key or local address. Click **Load models**, select a model with tool support and save. Each provider keeps its own saved connection. Local Ollama requires a running local server and installed model; it needs no API key. Web search uses a separately saved Ollama Cloud key.
 
-Open **Appearance** to choose Classic, Moonlight, Sunrise or Mint. These are colour treatments of the same character and animation set.
+Open **Appearance** to choose Classic, Moonlight, Sunrise or Mint colour palettes, or the Cyber, Dark and Cozy outfits. The three community character designs were **created by Jaymie**, with pixel-art adaptations and their own activity poses. Your choice follows Aurora into the voice notch and onto your desktop.
 
 Choose a workspace folder before asking Aurora to read or create project files. The app uses your credentials; no shared cloud account or free API usage is included.
 

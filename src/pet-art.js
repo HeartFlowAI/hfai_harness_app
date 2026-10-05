@@ -35,6 +35,17 @@ document.querySelectorAll('.pet-host').forEach(host => {
   const artwork=document.createElement('div');artwork.className='aurora-art';artwork.append(reference,sprite);
   host.replaceChildren(artwork, stars, bubble,portal);
   let dirty = true;
+  const skins=new Map();let selectedSkin=null,skinImage=null;
+  const selectSkin=()=>{
+    selectedSkin=window.AuroraAppearances?.list.find(item=>item.id===host.dataset.appearance&&item.atlas)||null;
+    host.classList.toggle('community-art',!!selectedSkin);
+    if(!selectedSkin){skinImage=null;return;}
+    if(!skins.has(selectedSkin.id)){
+      const image=new Image();image.onload=()=>{dirty=true;};image.onerror=()=>{host.classList.add('skin-unavailable');};image.src=selectedSkin.atlas;skins.set(selectedSkin.id,image);
+    }
+    skinImage=skins.get(selectedSkin.id);host.classList.remove('skin-unavailable');
+  };
+  new MutationObserver(()=>{selectSkin();dirty=true;}).observe(host,{attributes:true,attributeFilter:['data-appearance']});selectSkin();
   const atlas = new Image();
   atlas.onload = () => { host.classList.add('has-atlas'); dirty = true; };
   atlas.onerror = () => host.classList.add('atlas-unavailable');
@@ -53,6 +64,16 @@ document.querySelectorAll('.pet-host').forEach(host => {
   };
   new ResizeObserver(resize).observe(host);
   const draw = (index,state) => {
+    if(selectedSkin){
+      const ctx=sprite.getContext('2d');ctx.clearRect(0,0,sprite.width,sprite.height);
+      if(!skinImage?.complete||!skinImage.naturalWidth||!sprite.width)return;
+      const pose=state==='walking'?8+index%2:state==='pointing'?10:index;
+      const [x,y,w,h]=window.AuroraAppearances.frameRect(selectedSkin,pose,skinImage.naturalWidth,skinImage.naturalHeight);
+      const scale=Math.min(sprite.width*.96/w,sprite.height*.82/h),width=w*scale,height=h*scale;
+      ctx.imageSmoothingEnabled=false;ctx.save();
+      if((state==='walking'||state==='pointing')&&host.dataset.facing==='left'){ctx.translate(sprite.width,0);ctx.scale(-1,1);}
+      ctx.drawImage(skinImage,x,y,w,h,(sprite.width-width)/2,sprite.height*.9-height,width,height);ctx.restore();dirty=false;return;
+    }
     const walking=state==='walking',pointing=state==='pointing',image=pointing?pointImage:walking?walkAtlas:atlas;
     if (!image.complete || !image.naturalWidth || !sprite.width) return;
     const [x,y,w,h] = pointing ? [224,8,890,1234] : (walking?auroraWalkRects:auroraFrameRects)[index];
