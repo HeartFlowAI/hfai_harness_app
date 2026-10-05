@@ -27,20 +27,28 @@ async function events(response, callback) {
 }
 // Stable IDs also let conversations continue after switching providers.
 function normalized(messages) {
-  let pending = [];
-  return messages.map((message, index) => {
+  let pending = []; const result = [];
+  const interrupted = () => {
+    for (const call of pending) result.push({role:'tool',tool_name:call.function.name,tool_call_id:call.id,content:'This tool call was interrupted before its result was recorded. No success is confirmed. Observe current state before retrying any action.'});
+    pending = [];
+  };
+  messages.forEach((message, index) => {
     const m = { ...message };
+    if (m.role !== 'tool') interrupted();
     if (m.role === 'assistant') {
       pending = (m.tool_calls || []).map((call, n) => ({ ...call, id: call.id || `aurora_${index}_${n}`, function: { ...call.function, arguments: typeof call.function.arguments === 'string' ? JSON.parse(call.function.arguments) : call.function.arguments || {} } }));
       m.tool_calls = pending;
     }
     if (m.role === 'tool') {
       const match = pending.find(call => call.id === m.tool_call_id) || pending.find(call => call.function.name === m.tool_name) || pending[0];
-      m.tool_call_id = match?.id || m.tool_call_id;
+      // A damaged legacy/orphan record has no corresponding callable request.
+      if (!match) return;
+      m.tool_call_id = match.id;
       pending = pending.filter(call => call !== match);
     }
-    return m;
+    result.push(m);
   });
+  interrupted(); return result;
 }
 function ollamaMessages(messages) {
   return normalized(messages).map(m => ({ role: m.role, content: m.content || '', ...(m.thinking && m._provider !== 'openrouter' ? { thinking: m.thinking } : {}), ...(m.tool_calls?.length ? { tool_calls: m.tool_calls.map(call => ({ function: call.function })) } : {}), ...(m.tool_name ? { tool_name: m.tool_name } : {}) }));
