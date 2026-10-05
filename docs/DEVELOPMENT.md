@@ -87,3 +87,13 @@ For migration, settings and colour palettes, run:
 ```
 
 This isolated fixture uses fake encrypted credentials and simulated model/speech replies. Provider adapter tests use synthetic streams; account-specific API access still needs a live credential check. Updater tests simulate discovery and downloads; a real installed-version upgrade requires published release assets.
+
+## Shutdown and instance checks
+
+```powershell
+node scripts/lifecycle-smoke.js
+```
+
+This runner launches separate Electron processes sharing one isolated profile. It verifies duplicate rejection, restoration of a minimized window, shutdown with hidden overlays/companion windows and an active synthetic task, saved conversation data, and reopening after the lock is released. It repeats three cycles and a final fresh launch. The cursor and computer helpers are fixtures; no live microphone, cloud or physical mouse input is used.
+
+Normal launches allow one primary Aurora per Windows user/profile. Closing the main window quits the whole app; minimizing keeps it alive for voice use. `--smoke-test` normally isolates fixture instances; `--single-instance-smoke` enables the real lock for this specific test. Keep these flags out of production shortcuts.

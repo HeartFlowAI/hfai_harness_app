@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.2.1 — Shutdown and single-instance fix
+
+- Closing the main window shuts down the full app, including hidden action displays, pet/notch windows, speech, native helpers and timers.
+- Wait for an interrupted task and queued local saves before exiting. A bounded shutdown fallback prevents a stuck helper from holding the instance indefinitely.
+- A second launch restores the existing window. Launches during startup are queued; launches during shutdown request a fresh process after the old one exits.
+- Prevent late pointer/overlay callbacks from recreating activity after disposal.
+- Verified with real Electron single-instance locks and three repeated close/reopen cycles in an isolated profile, including auxiliary windows and an interrupted model request. No live microphone, cloud requests or physical computer input were used.
+
 ## 0.2.0 — Local release preparation
 
 - Separate saved connections for OpenAI, Claude / Anthropic, OpenRouter, Ollama Cloud and local Ollama. Streaming replies and tool results use provider-specific adapters while sharing Aurora's tools and approval flow.

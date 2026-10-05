@@ -3,9 +3,11 @@ const fs = require('node:fs/promises');
 const path = require('node:path');
 const { pathToFileURL } = require('node:url');
 const { randomUUID } = require('node:crypto');
-// Copies of the app share one instance per Windows user. Test profiles are isolated.
-if(!process.argv.includes('--smoke-test')&&!app.requestSingleInstanceLock())app.exit(0);
-app.on('second-instance',()=>{if(mainWindow&&!mainWindow.isDestroyed())showMain();});
+const lifecycle=require('./app-lifecycle').createLifecycle({app,
+  isolated:process.argv.includes('--smoke-test')&&!process.argv.includes('--single-instance-smoke'),
+  reopen:showMain,cleanup:shutdown,flush:async()=>{await runFinished;await saves;},
+  onError:error=>console.warn('Aurora could not finish shutdown: '+error.message)
+});
 const provider = require('./provider');
 const connections = require('./provider-settings');
 const appearances = require('./appearances');
@@ -37,6 +39,7 @@ let petLayer;
 if (process.platform === 'win32') app.disableHardwareAcceleration();
 
 let mainWindow, petWindow, data, run, petMotion, petState = 'idle', petDocking = false;
+let runFinished=Promise.resolve();
 const approvals = new Map();
 const foundFiles = new Map();
 let reactionTimer, presentation, pointTarget, presentationBusy = false, petForFile=false, petReturnTimer, petShowTimer;
@@ -157,7 +160,7 @@ function askQuestion(question, signal, fileIds = '[]', choices = '[]') {
 function snapshot() {
   return {version:app.getVersion(),updates:updater?.snapshot(),provider:data.provider,connections:connections.snapshot(data),appearance:data.appearance,appearances:appearances.list,mode:data.mode,projects:data.projects,activeProjectId:data.activeProjectId,computerEnabled:data.computerEnabled!==false, voice: voiceSnapshot(), model: data.model, workspace: data.workspace, searchFolders: data.searchFolders || [], searchRoots: searchRoots(), hasKey: !connections.definitions[data.provider].key || !!data.connections[data.provider].encryptedKey, chats:sessions.summaries(data), currentId: data.currentId, messages: current().messages, busy: !!run, detached: !!petWindow, state: petState };
 }
-function emit(event) { if (mainWindow && !mainWindow.isDestroyed()) mainWindow.webContents.send('event', event); voiceNotch?.event(event); }
+function emit(event) { if(lifecycle.closing)return;if (mainWindow && !mainWindow.isDestroyed()) mainWindow.webContents.send('event', event); voiceNotch?.event(event); }
 function state(value, detail = '') {
   clearTimeout(reactionTimer);
   petState = value; emit({ type: 'state', state: value, detail });
@@ -184,7 +187,8 @@ function createWindow() {
     else throw new Error('Unknown notch action.');
   }});
   mainWindow.on('minimize',()=>voiceNotch?.sync());mainWindow.on('restore',()=>voiceNotch?.sync());mainWindow.on('show',()=>voiceNotch?.sync());mainWindow.on('move',()=>voiceNotch?.sync());
-  mainWindow.on('closed', () => { voiceSession?.stop(); stop(); presentation?.cancel(); voiceNotch?.dispose();voiceNotch=null;if (petWindow) petWindow.close(); mainWindow = null; });
+  mainWindow.on('close',event=>lifecycle.closeMain(event));
+  mainWindow.on('closed', () => { mainWindow = null;if(!lifecycle.closing)app.quit(); });
 }
 function stopMotion() { petMotion?.cancel(); petMotion = null; }
 async function dock() {
@@ -253,14 +257,24 @@ function approve(name, args, signal) {
   });
 }
 function stop() { endComputer();if (run) run.abort(); computerControl?.cancel(); inputOverlay?.hide(); presentation?.cancel(); }
+function shutdown(){
+  const actions=[()=>voiceSession?.stop(),()=>playback?.settle(new Error('App closed.')),stop,stopMotion,
+    ()=>globalShortcut.unregisterAll(),()=>inputOverlay?.dispose(),()=>presentation?.cancel(),()=>voiceNotch?.dispose(),()=>petLayer?.dispose(),
+    ()=>{clearTimeout(reactionTimer);clearTimeout(speechExpressionTimer);clearTimeout(petReturnTimer);clearTimeout(petShowTimer);},
+    ()=>{for(const win of BrowserWindow.getAllWindows())if(win!==mainWindow&&!win.isDestroyed())win.destroy();}
+  ];
+  for(const action of actions)try{action();}catch(error){console.warn('Aurora cleanup: '+error.message);}
+}
 async function send(text, viaVoice = false) {
   if (run) throw new Error('Aurora is already working.');
   if (typeof text !== 'string' || !text.trim() || text.length > 20000) throw new Error('Enter a message under 20,000 characters.');
+  if(lifecycle.closing)throw Error('Aurora is closing. Open her again after shutdown.');
   const apiKey = key(), model = data.model, modelProvider = data.provider, baseUrl = data.connections[modelProvider].baseUrl;
   const searchKey = data.connections['ollama-cloud'].encryptedKey ? key('ollama-cloud') : '';
   const secrets = [apiKey, searchKey];
   if (!model) throw new Error('Choose a model in Settings.');
   const controller = new AbortController(); run = controller;
+  let finishRun;runFinished=new Promise(resolve=>{finishRun=resolve;});
   const signal = controller.signal, chat = current(), workspace = data.workspace;
   chat.messages.push({ role: 'user', content: text.trim() });
   chat.updated=Date.now();
@@ -325,9 +339,11 @@ async function send(text, viaVoice = false) {
     state(signal.aborted ? 'idle' : 'error', detail); emit({ type: 'error', message: detail });
     return {content:signal.aborted ? '' : detail};
   } finally {
-    endComputer();run = null; await save().catch(error => emit({ type: 'error', message: `Could not save chat: ${error.message}` }));
-    emit({ type: 'snapshot', data: snapshot() });
-    if (voiceSession?.active && !viaVoice) await voiceSession.resume().catch(()=>{});
+    try {
+      endComputer();run = null; await save().catch(error => emit({ type: 'error', message: `Could not save chat: ${error.message}` }));
+      if(!lifecycle.closing)emit({ type: 'snapshot', data: snapshot() });
+      if (!lifecycle.closing && voiceSession?.active && !viaVoice) await voiceSession.resume().catch(()=>{});
+    }finally{finishRun();}
   }
 }
 function handle(channel, action, pet = false) {
@@ -335,7 +351,7 @@ function handle(channel, action, pet = false) {
     const win = pet ? petWindow : mainWindow;
     const expected = pathToFileURL(path.join(__dirname, pet ? 'pet.html' : 'index.html')).href;
     if (!win || event.sender !== win.webContents || event.senderFrame !== win.webContents.mainFrame || event.senderFrame.url !== expected) throw new Error('Untrusted IPC sender.');
-    try { return { ok: true, value: await action(...args) }; }
+    try { if(lifecycle.closing)throw Error('Aurora is closing.');return { ok: true, value: await action(...args) }; }
     catch (error) { return { ok: false, error: error.message }; }
   });
 }
@@ -474,7 +490,6 @@ app.whenReady().then(async () => {
   // Return the IPC acknowledgement before destroying the requesting pet window.
   handle('pet-dock', () => { setTimeout(dock, 100); }, true); handle('pet-roam', roam, true);
   createWindow();
+  lifecycle.ready();
   emit({type:'appearance',appearance:data.appearance});
-});
-app.on('window-all-closed', () => app.quit());
-app.on('before-quit', () => { voiceSession?.stop();playback?.settle(new Error('App closed.'));stop();globalShortcut.unregisterAll();inputOverlay?.dispose(); clearTimeout(reactionTimer);clearTimeout(petReturnTimer);clearTimeout(petShowTimer); presentation?.cancel();voiceNotch?.dispose(); });
+}).catch(error=>{console.error('Aurora startup failed: '+error.message);app.quit();});
