@@ -1,4 +1,8 @@
 const $ = id => document.getElementById(id);
+let strategyInspectPending=false;
+document.getElementById('strategy-inspect').addEventListener('click',async()=>{if(strategyInspectPending)return;strategyInspectPending=true;const button=$('strategy-inspect');button.disabled=true;try{const result=await window.aurora.inspectStrategy();if(!result.ok)throw Error(result.error);if(!result.value.cancelled){$('strategy-content').textContent=JSON.stringify(result.value.inspection,null,2);$('strategy-dialog').showModal();}}catch(error){toast(error.message);}finally{strategyInspectPending=false;button.disabled=false;}});
+document.getElementById('strategy-close').addEventListener('click',()=>{$('strategy-dialog').close();$('strategy-content').textContent='';});
+document.getElementById('strategy-dialog').addEventListener('close',()=>{$('strategy-content').textContent='';});
 let view, busy = false, detached = false, replyElement, replyText = '', replyTimer, approvalId, toastTimer;
 let searchTimer,searchGeneration=0,searchResults=null,deletingId;
 const captions = { idle: 'Here to help. Happy to be here.', thinking: 'Connecting the little dots…', browsing: 'A little curiosity goes a long way.', coding: 'Making something good, together.', waiting: 'I’ll wait for your say-so.', celebrating: 'We made it happen! ✦', error: 'A little hiccup. Let’s try again.' };

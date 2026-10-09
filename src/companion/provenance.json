@@ -1,0 +1,17 @@
+{
+  "format": "heartflow-companion-reader",
+  "version": 1,
+  "sourceRepository": "HeartFlowAI/trading-workspace",
+  "baseRevision": "268211885e81d717f9412f8f138dcc9ef26298cc",
+  "sourceFiles": [
+    "packages/build/companion.ts",
+    "packages/build/artifact.ts",
+    "packages/contracts/strategy.ts",
+    "packages/contracts/index.ts",
+    "packages/contracts/portfolio.ts",
+    "packages/strategies/service.ts"
+  ],
+  "bundleSha256": "7fffb4270de9f681a36976f06c54b8034edc708d863b94f1f5ba6027687d3d0a",
+  "license": "MIT",
+  "publication": "Reader code approved for public companion draft PRs."
+}

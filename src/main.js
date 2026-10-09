@@ -1,5 +1,7 @@
 const { app, BrowserWindow, ipcMain, dialog, safeStorage, screen, Menu, clipboard, shell, globalShortcut } = require('electron');
 const fs = require('node:fs/promises');
+const strategyReader=require('./companion/reader.cjs');
+let strategyInspectBusy=false;
 const path = require('node:path');
 const { pathToFileURL } = require('node:url');
 const { randomUUID } = require('node:crypto');
@@ -477,6 +479,13 @@ app.whenReady().then(async () => {
   });
   handle('reveal-file', async id => { const result = await revealFile(id, true); if (!run) state('idle', 'Selected file shown in Explorer'); return result; });
   handle('send', text=>send(text)); handle('stop', stop);
+  handle('strategy-inspect',async()=>{
+    if(run||presentationBusy||strategyInspectBusy)throw Error('Finish the current operation before inspecting a strategy package.');
+    strategyInspectBusy=true;
+    try{const selection=await dialog.showOpenDialog(mainWindow,{title:'Inspect a HeartFlow rule package',properties:['openFile'],filters:[{name:'Rule package JSON',extensions:['json']}]});if(selection.canceled||!selection.filePaths[0])return{cancelled:true};
+      const inspection=await strategyReader.inspectRuleFile(selection.filePaths[0]);return{cancelled:false,inspection};
+    }finally{strategyInspectBusy=false;}
+  });
   handle('new-chat', async () => { if (run) throw new Error('Stop the current task first.'); foundFiles.clear(); presentation?.cancel(); state('idle'); newChat(); await save(); return snapshot(); });
   function sessionChange(){if(run)throw Error('Finish or stop the current task first.');foundFiles.clear();presentation?.cancel();state('idle');}
   handle('select-chat', async id => {sessionChange();sessions.selectSession(data,id);await save();return snapshot();});

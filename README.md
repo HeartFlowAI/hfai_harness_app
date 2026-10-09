@@ -138,3 +138,4 @@ The [development guide](docs/DEVELOPMENT.md) covers packaging, integration check
 <p align="center"><strong>Made with heart. ♥</strong><br />Heartflow AI · Aurora</p>
 
 Third-party library notices are in `src/vendor/`. No project redistribution license has been selected. Public visibility alone does not grant reuse permission for project code or character/brand assets.
+The prepared strategy package inspection adapter uses a host file picker and separate plain-text dialog. See [strategy packages](STRATEGY-PACKAGES.md) for boundaries and pending acceptance.

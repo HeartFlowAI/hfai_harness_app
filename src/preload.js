@@ -1,5 +1,6 @@
 const { contextBridge, ipcRenderer } = require('electron');
 contextBridge.exposeInMainWorld('aurora', {
+  inspectStrategy:()=>ipcRenderer.invoke('strategy-inspect'),
   load: () => ipcRenderer.invoke('load'),
   voiceCapabilities: () => ipcRenderer.invoke('voice-capabilities'),
   voiceSettings: values => ipcRenderer.invoke('voice-settings',values),
