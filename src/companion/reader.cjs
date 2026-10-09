@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026 HeartFlowAI. See READER-LICENSE.txt.
 // HeartFlowAI rule package reader v1. Generated from workspace-owned sources.
 // Local inspection only; no activation or generated-code execution.
 Object.defineProperty(exports, Symbol.toStringTag, { value: "Module" });
