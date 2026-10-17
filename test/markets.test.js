@@ -38,3 +38,22 @@ test('holders prefers RugCheck and reports holder count and risks', async () => 
   assert.equal(info.accounts[0].address, 'WalletAAA');
   assert.deepEqual(info.risks, ['Low liquidity']);
 });
+
+test('binanceHistory maps klines to OHLCV points and drops bad rows', async () => {
+  const fetchImpl = async url => { assert.match(url, /api\.binance\.com\/api\/v3\/klines\?symbol=SOLUSDT&interval=1h&limit=168/); return { ok: true, json: async () => [[1000, '1', '2', '0.5', '1.5', '120'], [2000, '1', '2', '0.5', '0', '5'], [3000, '1', '2.5', '0.5', '2.5', '80']] }; };
+  const points = await providers.binanceHistory('SOLUSDT', { fetchImpl, interval: '1h', limit: 168 });
+  assert.deepEqual(points, [{ t: 1000, o: 1, h: 2, l: 0.5, c: 1.5, p: 1.5, v: 120 }, { t: 3000, o: 1, h: 2.5, l: 0.5, c: 2.5, p: 2.5, v: 80 }]);
+});
+
+test('trending reads Solana token boosts and enriches each with its best pair', async () => {
+  const fetchImpl = async url => {
+    const u = String(url);
+    if (u.includes('token-boosts/top')) return { ok: true, json: async () => [{ chainId: 'solana', tokenAddress: 'MintBoosts' }, { chainId: 'ethereum', tokenAddress: '0xdead' }] };
+    if (u.includes('/tokens/v1/solana/MintBoosts')) return { ok: true, json: async () => [{ chainId: 'solana', dexId: 'raydium', baseToken: { address: 'MintBoosts', symbol: 'BOOST', name: 'Boosted' }, priceUsd: '0.5', priceChange: { h24: '12' }, liquidity: { usd: '50000' }, volume: { h24: '9000' }, marketCap: '1000000' }] };
+    throw new Error('unexpected ' + u);
+  };
+  const items = await providers.trending({ fetchImpl });
+  assert.equal(items.length, 1);
+  assert.equal(items[0].symbol, 'BOOST');
+  assert.equal(items[0].priceUsd, 0.5);
+});

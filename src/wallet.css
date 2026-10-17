@@ -33,7 +33,7 @@
 .market-row-value strong{font-variant-numeric:tabular-nums;font-size:13px}
 .market-share{position:absolute;left:0;bottom:0;height:2px;width:100%;background:var(--line)}
 .market-share i{display:block;height:100%;background:var(--accent)}
-.market-error{color:#ff9db4;font-size:11px}
+.market-error{color:var(--loss);font-size:11px}
 .market-connect{display:flex;flex-direction:column;gap:8px;border:1px dashed var(--line-strong);border-radius:12px;padding:14px}
 .market-connect p{font-size:12px;line-height:1.7;color:var(--muted);margin:0}
 .market-connect input{border:1px solid var(--line-strong);background:var(--bg);color:var(--text);border-radius:8px;padding:10px;font-size:12px}
@@ -75,7 +75,7 @@
 .market-metrics b{font-size:12px;font-variant-numeric:tabular-nums}
 .market-safety-ok{color:#5ef0ac}
 .market-safety-caution{color:#ffcf7a}
-.market-safety-risk{color:#ff9db4}
+.market-safety-risk{color:var(--loss)}
 .market-safety-unknown{color:var(--faint)}
 .market-token-actions{display:flex;gap:6px;margin-top:6px}
 .market-token-actions .secondary{flex:1;padding:7px;font-size:11px}
@@ -85,7 +85,7 @@
 .market-trade{display:flex;gap:6px;margin-top:6px;align-items:center}
 .market-trade .secondary{flex:none;padding:7px 10px;font-size:11px}
 .market-up{color:#5ef0ac}
-.market-down{color:#ff9db4}
+.market-down{color:var(--loss)}
 .market-report{margin:0;padding:10px;border-top:1px solid var(--line);white-space:pre-wrap;overflow-wrap:anywhere;font:11px/1.6 ui-monospace,Consolas,monospace;color:var(--text);max-height:280px;overflow:auto;background:var(--bg);border-radius:0 0 10px 10px}
 .strat-form{display:flex;flex-wrap:wrap;gap:6px;margin-top:4px}
 .market-input{flex:1 1 100%;background:var(--bg);border:1px solid var(--line-strong);border-radius:6px;color:var(--text);font-size:11px;padding:6px 8px}

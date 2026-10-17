@@ -1,7 +1,7 @@
 const { test } = require('node:test'), assert = require('node:assert/strict');
 const solana = require('../src/wallet/solana');
 const providers = require('../src/wallet/providers');
-const { createWalletManager, normalizeConfig, sanitizeHistory } = require('../src/wallet/index');
+const { createWalletManager, normalizeConfig, sanitizeHistory, sanitizeHistoryCache } = require('../src/wallet/index');
 const { executeTool } = require('../src/tools');
 const { createSolanaConnect } = require('../src/wallet/connect');
 
@@ -89,6 +89,44 @@ test('portfolio history aggregates priced holdings across a range', async () => 
   manager.dispose();
 });
 
+test('portfolioSeries reports coverage and the request range uses its Binance interval', async () => {
+  const seen = [];
+  const fetchImpl = async (url, options = {}) => {
+    const u = String(url);
+    if (u.includes('binance.com') && u.includes('/klines')) {
+      if (u.includes('interval=1h')) { seen.push(u); return json([[DATE, '1', '2', '0.5', '1'], [DATE + 864e5, '1', '2', '0.5', '2']]); }
+      throw new Error('binance ' + u);
+    }
+    return fakeFetch()(u, options);
+  };
+  const config = normalizeConfig({ addresses: [ADDRESS], rpc: '' });
+  const manager = createWalletManager({ config, fetchImpl });
+  await manager.refresh();
+  await manager.ready(SOL, 'max');
+  await manager.ready('MintA', 'max');
+  const result = manager.portfolioSeries('30D');
+  assert.equal(result.holdings, 2);
+  assert.equal(result.covered, 2);
+  assert.equal(result.points.length, 3);
+  assert.ok(result.total >= 2300);
+  seen.length = 0;
+  await manager.ready(SOL, '7D');
+  assert.match(seen[0], /interval=1h&limit=168/);
+  manager.dispose();
+});
+
+test('a paper-buy signal fires onSignal with the rule and live quote', async () => {
+  const config = normalizeConfig({ watchlist: [WATCH], signals: [{ id: 'sig1', name: 'Dip', mint: WATCH, condition: { metric: 'price', op: 'above', value: 0.5 }, action: 'paper-buy', usd: 50, cooldownSec: 0 }] });
+  const fired = [];
+  const manager = createWalletManager({ config, fetchImpl: fakeFetch(), onSignal: (rule, quote) => fired.push({ rule, quote }) });
+  await manager.refresh();
+  assert.equal(fired.length, 1);
+  assert.equal(fired[0].rule.action, 'paper-buy');
+  assert.equal(fired[0].rule.usd, 50);
+  assert.equal(fired[0].quote.price, 1);
+  manager.dispose();
+});
+
 test('wallet manager reports an empty state with no addresses', async () => {
   const config = normalizeConfig({});
   const manager = createWalletManager({ config, fetchImpl: fakeFetch() });
@@ -155,6 +193,42 @@ test('sanitizeHistory keeps bounded, valid points only', () => {
   const history = sanitizeHistory({ [WATCH]: [{ t: '1', p: '2' }, { t: 'bad' }], nope: [{ t: 1, p: 1 }] });
   assert.deepEqual(history[WATCH], [{ t: 1, p: 2 }]);
   assert.equal(history.nope, undefined);
+});
+
+test('sanitizeHistoryCache keeps valid ranged entries with OHLC and prunes bad keys', () => {
+  const cache = sanitizeHistoryCache({
+    [`${WATCH}|7D`]: { at: 123, points: [{ t: 1, p: 2, o: 1, h: 3, l: 0.5, c: 2 }, { t: 2, p: 3 }, { t: 'bad' }] },
+    'nope|7D': { at: 1, points: [{ t: 1, p: 1 }, { t: 2, p: 2 }] },
+    [`${WATCH}|weird`]: { at: 1, points: [{ t: 1, p: 1 }, { t: 2, p: 2 }] },
+    [`${WATCH}|max`]: { at: 1, points: [{ t: 1, p: 1 }] }
+  });
+  assert.equal(Object.keys(cache).length, 1);
+  assert.equal(cache[`${WATCH}|7D`].at, 123);
+  assert.deepEqual(cache[`${WATCH}|7D`].points[0], { t: 1, o: 1, h: 3, l: 0.5, c: 2, p: 2, v: 0 });
+});
+
+test('ranged history persists to config and reloads without a refetch', async () => {
+  const config = normalizeConfig({ addresses: [ADDRESS], rpc: '' });
+  const manager = createWalletManager({ config, fetchImpl: fakeFetch() });
+  await manager.refresh();
+  await manager.ready('MintA', 'max');
+  assert.ok(config.historyCache['MintA|max']);
+  manager.dispose();
+  const manager2 = createWalletManager({ config, fetchImpl: fakeFetch() });
+  await manager2.refresh();
+  const result = manager2.portfolioSeries('30D');
+  assert.ok(result.covered >= 1);
+  manager2.dispose();
+});
+
+test('a market token without a Binance mapping probes SYMBOLUSDT once', async () => {
+  const seen = [];
+  const fetchImpl = async (url, options = {}) => { const u = String(url); if (u.includes('binance.com') && u.includes('/klines')) { seen.push(u); if (u.includes('symbol=MSOLUSDT')) return json([[DATE, '1', '2', '0.5', '1'], [DATE + 864e5, '1', '2', '0.5', '2']]); throw new Error('no binance'); } if (u.includes('coingecko')) return json({ prices: [] }); return fakeFetch()(u, options); };
+  const config = normalizeConfig({});
+  const manager = createWalletManager({ config, fetchImpl });
+  await manager.ready('mSoLzYCxHdYgdzU16g5QSh3i5K3z3KZK7ytfqcJm7So', '7D');
+  assert.ok(seen.some(u => u.includes('symbol=MSOLUSDT')));
+  manager.dispose();
 });
 
 test('WalletConnect refuses without a project id and normalizes wc config', async () => {  const connect = createSolanaConnect({ getProjectId: () => '' });

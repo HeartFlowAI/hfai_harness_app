@@ -2,7 +2,7 @@
 (() => {
   const $ = id => document.getElementById(id);
   const unwrap = async promise => { const result = await promise; if (!result.ok) throw new Error(result.error); return result.value; };
-  const money = value => `$${Number(value || 0).toLocaleString(undefined, { maximumFractionDigits: Number(value) < 1 ? 4 : 2 })}`;
+  const money = value => { const n = Number(value || 0), abs = Math.abs(n); if (abs === 0) return '$0'; const max = abs >= 1 ? 2 : Math.max(2, Math.min(8, Math.ceil(-Math.log10(abs)) + 3)); return `$${n.toLocaleString(undefined, { minimumFractionDigits: abs >= 1 ? 2 : 0, maximumFractionDigits: max })}`; };
   const amount = value => Number(value || 0) >= 1 ? Number(value).toLocaleString(undefined, { maximumFractionDigits: 4 }) : Number(value || 0).toPrecision(4);
   let view = null, chartMint = '';
 

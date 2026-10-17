@@ -4,6 +4,7 @@ const { fetchMintSafety, rpcCall, DEFAULT_RPC } = require('./solana');
 // upgraded to Helius/Birdeye later without touching callers.
 const JUPITER_PRICE = 'https://lite-api.jup.ag/price/v3';
 const DEXSCREENER = 'https://api.dexscreener.com/latest/dex';
+const TOKEN_BOOSTS = 'https://api.dexscreener.com/token-boosts/top/v1';
 const RUGCHECK = 'https://api.rugcheck.xyz/v1/tokens';
 const COINGECKO = 'https://api.coingecko.com/api/v3';
 const BINANCE = 'https://api.binance.com/api/v3';
@@ -46,7 +47,9 @@ async function pairForToken(mint, { fetchImpl = fetch, signal } = {}) {
   const response = await fetchImpl(`https://api.dexscreener.com/tokens/v1/solana/${encodeURIComponent(mint)}`, { signal });
   if (!response.ok) throw new Error(`DexScreener responded ${response.status}.`);
   const pairs = await response.json();
-  const best = (Array.isArray(pairs) ? pairs : []).sort((a, b) => number(b?.liquidity?.usd) - number(a?.liquidity?.usd))[0];
+  const all = Array.isArray(pairs) ? pairs : [];
+  const own = all.filter(pair => pair && pair.baseToken && pair.baseToken.address === mint);
+  const best = (own.length ? own : all).sort((a, b) => number(b?.liquidity?.usd) - number(a?.liquidity?.usd))[0];
   return best ? pairSummary(best) : null;
 }
 // Free price history (hourly points) for majors, used to seed charts so they are
@@ -67,12 +70,36 @@ function tokenHistory(mint, days = 30, { fetchImpl = fetch, signal } = {}) {
 }
 const priceHistory = coinHistory;
 // Binance public klines: generous limits, no key. Covers tokens with a USDT
-// pair and is the primary chart source for those.
+// pair and is the primary chart source for those. Returns OHLC plus close as
+// `p` so the desk can draw candles without a second request.
 async function binanceHistory(symbol, { fetchImpl = fetch, signal, interval = '1d', limit = 1000 } = {}) {
   const response = await fetchImpl(`${BINANCE}/klines?symbol=${encodeURIComponent(symbol)}&interval=${interval}&limit=${limit}`, { signal });
   if (!response.ok) throw new Error(`Binance responded ${response.status}.`);
   const rows = await response.json();
-  return (Array.isArray(rows) ? rows : []).map(row => ({ t: Number(row[0]), p: Number(row[4]) })).filter(point => point.t > 0 && point.p > 0);
+  return (Array.isArray(rows) ? rows : [])
+    .map(row => ({ t: Number(row[0]), o: Number(row[1]), h: Number(row[2]), l: Number(row[3]), c: Number(row[4]), p: Number(row[4]), v: Number(row[5]) || 0 }))
+    .filter(point => point.t > 0 && point.p > 0);
+}
+// The highest-liquidity pair whose base token is exactly `mint`, so symbol and
+// USD price belong to the token we asked about (not the SOL quote side).
+async function basePair(mint, { fetchImpl = fetch, signal } = {}) {
+  const response = await fetchImpl(`https://api.dexscreener.com/tokens/v1/solana/${encodeURIComponent(mint)}`, { signal });
+  if (!response.ok) throw new Error(`DexScreener responded ${response.status}.`);
+  const pairs = await response.json();
+  const own = (Array.isArray(pairs) ? pairs : []).filter(pair => pair && pair.baseToken && pair.baseToken.address === mint);
+  const best = own.sort((a, b) => number(b?.liquidity?.usd) - number(a?.liquidity?.usd))[0];
+  return best ? pairSummary(best) : null;
+}
+// Real trending: DexScreener token boosts (free, no key), Solana only, kept to the
+// pairs where the boosted token is the base so each card is a distinct token.
+async function trending({ fetchImpl = fetch, signal, limit = 14 } = {}) {
+  const response = await fetchImpl(TOKEN_BOOSTS, { signal });
+  if (!response.ok) throw new Error(`DexScreener responded ${response.status}.`);
+  const body = await response.json();
+  const solana = (Array.isArray(body) ? body : []).filter(item => item && item.chainId === 'solana' && item.tokenAddress).slice(0, limit * 2);
+  const pairs = await Promise.all(solana.map(item => basePair(item.tokenAddress, { fetchImpl, signal }).catch(() => null)));
+  const seen = new Set();
+  return pairs.filter(pair => pair && pair.symbol && !seen.has(pair.address) && seen.add(pair.address)).slice(0, limit);
 }
 async function tokenSafety(mint, options = {}) {
   const safety = await fetchMintSafety(mint, options);
@@ -118,4 +145,4 @@ async function holders(mint, { fetchImpl = fetch, rpc = DEFAULT_RPC, signal } = 
   });
   return { mint, accounts, source: 'rpc', total, top1: accounts[0]?.pct || 0, top10: accounts.slice(0, 10).reduce((sum, entry) => sum + entry.pct, 0), holders: 0, risks: [] };
 }
-module.exports = { JUPITER_PRICE, DEXSCREENER, RUGCHECK, BINANCE, jupiterPrices, searchTokens, pairForToken, priceHistory, coinHistory, tokenHistory, binanceHistory, tokenSafety, holders };
+module.exports = { JUPITER_PRICE, DEXSCREENER, RUGCHECK, BINANCE, jupiterPrices, searchTokens, pairForToken, priceHistory, coinHistory, tokenHistory, binanceHistory, tokenSafety, holders, trending };

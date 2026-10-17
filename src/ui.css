@@ -14,7 +14,7 @@
 .hf-btn.primary:hover{filter:brightness(1.06);color:var(--accent-ink)}
 .hf-btn.ghost{background:transparent;border-color:transparent;color:var(--muted)}
 .hf-btn.ghost:hover{background:var(--accent-deep);color:var(--accent-soft)}
-.hf-btn.danger{color:#ff9db4;border-color:#7a3b4c55}
+.hf-btn.danger{color:var(--loss);border-color:#7a3b4c55}
 .hf-btn.sm{height:28px;padding:0 10px;font-size:var(--t-xs)}
 .hf-btn.icon{width:30px;height:30px;padding:0;font-size:14px}
 .hf-btn.sm.icon{width:26px;height:26px}
@@ -45,7 +45,7 @@
 .hf-table tbody tr{transition:background .15s var(--hf-ease)}
 .hf-table tbody tr:hover td{background:rgba(255,255,255,.035)}
 .hf-table .num{text-align:right}
-.hf-up{color:var(--live)}.hf-down{color:#ff9db4}
+.hf-up{color:var(--live)}.hf-down{color:var(--loss)}
 
 .hf-badge{display:inline-flex;align-items:center;gap:5px;height:18px;padding:0 7px;border-radius:999px;font-size:10px;letter-spacing:.4px;background:var(--accent-deep);color:var(--accent-soft)}
 .hf-badge.live{background:#ff4d6d2a;color:#ffb3c1}
