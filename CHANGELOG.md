@@ -1,5 +1,41 @@
 # Changelog
 
+## 0.6.5 — Heartflow Aurora (2026-10-17)
+
+Adds a calmer visual identity and turns Gigi's desk into a real trading terminal: candlestick charts, a market screener, CEX-style paper orders, and a watch / alerts / notifications hub.
+
+### A calmer, cleaner look
+
+- Replaced the neon-magenta/violet default with a **slate + signal-blue** palette. Every hardcoded purple tint and glow across the stylesheets is gone, the logo and agent accents are recolored to match, and every theme gained a `--loss` token.
+- Typography now uses a proper **system font stack** (SF Pro on macOS) instead of a Windows fallback, with a rebuilt button system (primary / ghost / buy / sell / segmented), cleaner inputs and field labels, and a tidier chat composer.
+
+### Trade, rebuilt as a terminal
+
+- **Candlestick charts**: OHLC from Binance with price and time axes, a volume histogram, a dashed last-price line and a hover OHLCV crosshair, plus a Line / Candles toggle. The OHLC readout is now a clean row above the chart.
+- A single **Place order** card: Buy / Sell, order type, amount with available balance and 25/50/100% presets, a live "You receive" estimate, and one clear action. Order types: **market, limit, stop, stop-limit, trailing stop and take-profit / stop-loss (OCO)**.
+- **Open orders / Recent fills / Holders** collapsed into one tidy tabbed panel; positions show entry price, unrealized P/L and ROE.
+- An **Ask Gigi** box on the desk sends the token, mode and balance, so she can place paper trades or set watches on your behalf.
+- Fixed the layout collapsing to a single column at common window widths, so the order panel sits beside the chart.
+
+### Discover, now a screener
+
+- **Trending, New pairs, Takeovers and Narratives** tabs with a sortable table (price, 5m / 1h / 24h, liquidity, volume, market cap, age), a symbol filter and a minimum-liquidity filter. Backed by new DexScreener feeds and an enriched pair summary.
+
+### Watch, alerts and notifications (new)
+
+- A new **Watch** section: a watchlist table with sparklines and quick actions, price-alert authoring, and a **notification inbox** with an unread badge.
+- Alerts and signals now raise a native **desktop notification** and are recorded to the inbox.
+
+### Fixes
+
+- Fixed the crashes and bugs behind "no data indexed": a bad tag name in the holders list (it threw for any token with holders), the `[object HTMLDivElement]` header text, sub-cent prices rendering as `$0`, and the Discover grid that emptied on redraw.
+- Fixed several agent paths: paper trades and strategies now carry a token symbol, live trades honour the position cap, and `show_view` can pass table and metrics data.
+- Added grouped/compact number formatting for labeled values.
+
+### Tests
+
+- A jsdom harness drives the real desk in tests: Trade, holders, the Discover screener, Watch and the view-render guard, plus provider feed and paper-engine cases (stop-limit, trailing, OCO, ROE). 202 passing.
+
 ## 0.6.0 — Heartflow Aurora (2026-10-15)
 
 This release rolls up everything built in today's session: Gigi's whole Solana desk, the data layer that makes it live, the Instinct-inspired taste pass, plus the platform work (macOS computer use, automations, themes, membership) that landed alongside it.

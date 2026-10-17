@@ -1,7 +1,7 @@
 {
   "name": "heartflow-aurora",
   "productName": "Heartflow Aurora",
-  "version": "0.6.0",
+  "version": "0.6.5",
   "private": true,
   "description": "A desktop AI companion with voice, desktop tools, a Solana trading workspace and a choice of model providers",
   "main": "src/main.js",

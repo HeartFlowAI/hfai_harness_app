@@ -432,3 +432,19 @@ correctly, and no section throws a console exception. `npm run check` passes, te
 - Tests: added provider feed tests, a screener DOM test, and paper tests for stop-limit, trailing, OCO and
   ROE. `npm run check` passes, 201 pass / 1 skipped.
 
+### 2026-10-16 (eleventh pass: Watch + notifications + design polish)
+
+- **Watch section** (new desk tab): a watchlist table (price, 24h, sparkline, alert/trade/remove actions),
+  the price-alert form + list (moved out of Strategies), and a **notification inbox** with Mark all read /
+  Clear. Tab badge shows unread count.
+- **Notifications.** `pushNotification` in `main.js` records alerts/signals to `data.notifications` and
+  raises a native **Electron OS notification** (click focuses the window); `notifications-read` /
+  `notifications-clear` IPC; snapshot exposes `notifications` + `unread`.
+- **Design polish** (the "make it feel right" pass): real system font stack (was falling back to Segoe UI on
+  macOS), refined button system (primary/ghost/buy/sell/segmented), cleaner inputs and field labels, and a
+  tidier chat composer. The OHLC legend moved out of the chart into a static quote row so it no longer
+  overlaps the candles when the chat panel is open.
+- Tests: added a Watch DOM test; `npm run check` passes, 202 pass / 1 skipped.
+
+Next: Jupiter API key wiring for live Trigger orders (limit/TP-SL/DCA) and Swap v2.
+

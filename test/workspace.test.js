@@ -58,8 +58,7 @@ test('sub-cent token prices are formatted, not rounded to $0', async () => {
   assert.match(bonk.textContent, /\$0\.000003/, 'micro price uses significant digits');
 });
 
-test('discover renders a screener with formatted numbers and tabs', async () => {
-  const desk = createDesk({ wallet: walletFixture() });
+test('discover renders a screener with formatted numbers and tabs', async () => {  const desk = createDesk({ wallet: walletFixture() });
   desk.window.AuroraWorkspace.open(true);
   await desk.flush();
   desk.tab('discover').click();
@@ -70,4 +69,17 @@ test('discover renders a screener with formatted numbers and tabs', async () => 
   assert.match(table.textContent, /\$0\.000003/, 'price formatted');
   const tabs = [...desk.document.querySelectorAll('#ws-content .ws-disco-tabs button')].map(b => b.textContent);
   assert.deepEqual(tabs, ['Trending', 'New pairs', 'Takeovers', 'Narratives']);
+});
+
+test('watch section renders the watchlist, alerts and the notification inbox', async () => {
+  const desk = createDesk({ wallet: walletFixture() });
+  desk.window.view.notifications = [{ id: 'n1', at: Date.now(), kind: 'alert', title: 'SOL above 100', body: 'Now 105', read: false }];
+  desk.window.AuroraWorkspace.open(true);
+  await desk.flush();
+  desk.tab('watch').click();
+  await desk.flush(8);
+  const text = desk.document.getElementById('ws-content').textContent;
+  assert.match(text, /Price alerts/);
+  assert.match(text, /Notifications/);
+  assert.match(text, /SOL above 100/);
 });

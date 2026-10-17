@@ -142,8 +142,8 @@ main{position:relative}
 .ws-chartcard>.hf-body{padding:6px 10px 10px}
 .ws-chartcard-head{display:flex;align-items:center;gap:12px;padding:10px 14px;border-bottom:1px solid var(--line);flex-wrap:wrap}
 .ws-chart-wrap{position:relative}
-.ws-ohlc{position:absolute;top:12px;left:14px;z-index:4;display:flex;align-items:baseline;gap:11px;flex-wrap:wrap;max-width:calc(100% - 100px);font-size:var(--t-xs);color:var(--muted);font-variant-numeric:tabular-nums;pointer-events:none}
-.ws-ohlc b{font-size:var(--t-sm);color:var(--text);font-weight:650}
+.ws-ohlc{display:flex;align-items:baseline;gap:16px;row-gap:4px;flex-wrap:wrap;padding:9px 16px;border-bottom:1px solid var(--line);font-size:var(--t-xs);color:var(--muted);font-variant-numeric:tabular-nums}
+.ws-ohlc b{font-size:var(--t-sm);color:var(--text);font-weight:600}
 .ws-leg-i{color:var(--faint);text-transform:uppercase;letter-spacing:.6px;font-size:10px}
 .ws-charttype button{padding:5px 11px;font-size:var(--t-xs)}
 
@@ -288,3 +288,7 @@ textarea.ws-gigi-input:focus{border-color:var(--accent)}
 @media(max-width:1120px){.ws-trade{grid-template-columns:minmax(0,1fr)}.ws-canvas{grid-template-columns:1fr}}
 @media(max-width:1080px){.ws-chat{width:340px}.ws-starters{grid-template-columns:repeat(2,minmax(0,1fr))}}
 @media(max-width:900px){.ws-brand div{display:none}.ws-statbar{grid-template-columns:repeat(2,minmax(0,1fr))}}
+/* watch */
+.ws-watch-table td:first-child{width:42%}
+.ws-watch-table .ws-spark{color:var(--accent)}
+.ws-spark svg{display:block}

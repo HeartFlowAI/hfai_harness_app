@@ -62,6 +62,8 @@ contextBridge.exposeInMainWorld('aurora', {
   walletSignalToggle: (id, enabled) => ipcRenderer.invoke('wallet-signal-toggle', {id, enabled}),
   walletWcConnect: () => ipcRenderer.invoke('wallet-wc-connect'),
   walletWcDisconnect: () => ipcRenderer.invoke('wallet-wc-disconnect'),
+  notificationsRead: () => ipcRenderer.invoke('notifications-read'),
+  notificationsClear: () => ipcRenderer.invoke('notifications-clear'),
   updateAction: action => ipcRenderer.invoke('update-action', action),
   models: key => ipcRenderer.invoke('models', key),
   workspaceBrowse: relative => ipcRenderer.invoke('workspace-browse',relative),

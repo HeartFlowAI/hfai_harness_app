@@ -126,3 +126,57 @@ body.sidebar-collapsed .sidebar-footer,body[data-sidebar-hidden=true] .sidebar-f
 body.sidebar-collapsed .version,body[data-sidebar-hidden=true] .version{display:none}
 
 
+
+/* ---- Aurora design pass: typography + controls ---- */
+:root{--font-sans:-apple-system,BlinkMacSystemFont,'SF Pro Text','Segoe UI',Roboto,'Helvetica Neue',Arial,sans-serif;--font-mono:ui-monospace,'SF Mono',Menlo,Consolas,monospace}
+body{font-family:var(--font-sans);font-size:13.5px;letter-spacing:-.01em;-webkit-font-smoothing:antialiased;-moz-osx-font-smoothing:grayscale}
+.mono,code,pre,kbd,.ws-mint,.ws-row-name{font-family:var(--font-mono)}
+h1,h2,h3,h4,strong,b{letter-spacing:-.02em}
+
+.hf-btn{height:38px;padding:0 15px;border-radius:10px;font-size:13px;font-weight:550;border:1px solid var(--line-strong);background:var(--panel-2);color:var(--text);transition:background .14s var(--hf-ease),border-color .14s var(--hf-ease),color .14s var(--hf-ease)}
+.hf-btn:hover{border-color:var(--accent);color:var(--text)}
+.hf-btn:active{transform:translateY(.5px)}
+.hf-btn.sm{height:32px;padding:0 12px;font-size:12px;border-radius:9px}
+.hf-btn.icon{width:32px;padding:0}
+.hf-btn.icon.sm{width:28px}
+.hf-btn.ghost{background:transparent;border-color:transparent;color:var(--muted)}
+.hf-btn.ghost:hover{background:var(--panel-2);border-color:transparent;color:var(--text)}
+.hf-btn.primary{background:var(--accent);border-color:transparent;color:#fff;font-weight:600}
+.hf-btn.primary:hover{filter:brightness(1.07);color:#fff}
+.hf-btn.buy{background:rgba(52,211,153,.14);border-color:rgba(52,211,153,.38);color:#6ee7b7;font-weight:600}
+.hf-btn.buy:hover{background:rgba(52,211,153,.2);border-color:rgba(52,211,153,.6);color:#a7f3d0}
+.hf-btn.sell{background:rgba(248,113,113,.14);border-color:rgba(248,113,113,.38);color:#fca5a5;font-weight:600}
+.hf-btn.sell:hover{background:rgba(248,113,113,.2);border-color:rgba(248,113,113,.6);color:#fecaca}
+.hf-btn[disabled]{opacity:.4}
+
+.hf-input,input.hf-input,select.hf-input{height:38px;padding:0 12px;background:var(--bg);border:1px solid var(--line-strong);border-radius:10px;color:var(--text);font-size:13px;transition:border-color .14s var(--hf-ease),box-shadow .14s var(--hf-ease)}
+select.hf-input{cursor:pointer}
+.hf-input:focus,select.hf-input:focus{outline:none;border-color:var(--accent);box-shadow:0 0 0 3px var(--accent-deep)}
+.hf-input::placeholder{color:var(--faint)}
+.hf-field{display:flex;flex-direction:column;gap:6px}
+.hf-field>label{font-size:10.5px;letter-spacing:.7px;text-transform:uppercase;color:var(--faint);font-weight:600}
+.hf-field .hf-input{width:100%}
+
+.ws-seg{display:inline-flex;gap:3px;padding:3px;border:1px solid var(--line);border-radius:11px;background:var(--panel-2)}
+.ws-seg button{height:30px;padding:0 13px;border-radius:8px;font-size:12px;font-weight:500;color:var(--muted);transition:background .14s var(--hf-ease),color .14s var(--hf-ease)}
+.ws-seg button:hover{color:var(--text)}
+.ws-seg button[aria-pressed=true],.ws-seg button.active{background:var(--bg);color:var(--text);box-shadow:inset 0 0 0 1px var(--line-strong)}
+.ws-seg button.active.buy{background:rgba(52,211,153,.16);color:#6ee7b7;box-shadow:inset 0 0 0 1px rgba(52,211,153,.4)}
+.ws-seg button.active.sell{background:rgba(248,113,113,.16);color:#fca5a5;box-shadow:inset 0 0 0 1px rgba(248,113,113,.4)}
+.ws-sideseg{display:grid;grid-template-columns:1fr 1fr}
+.ws-sideseg button{height:36px;font-weight:600}
+.ws-typeseg{display:grid;grid-template-columns:repeat(3,1fr)}
+
+.hf-panel{border:1px solid var(--line);background:var(--panel)}
+.hf-panel>header h3{font-size:11px;letter-spacing:.9px;color:var(--muted)}
+.hf-badge{background:var(--accent-deep);color:var(--accent-soft)}
+
+/* chat composer */
+#composer{background:var(--panel);border:1px solid var(--line-strong);border-radius:16px;padding:12px 14px;box-shadow:0 10px 30px rgba(0,0,0,.28)}
+#composer:focus-within{border-color:var(--accent);box-shadow:0 10px 30px rgba(0,0,0,.28),0 0 0 3px var(--accent-deep)}
+#composer textarea{font-family:var(--font-sans);font-size:13.5px;line-height:1.55;color:var(--text)}
+#composer textarea::placeholder{color:var(--faint)}
+.composer-bottom{font-size:11px;color:var(--muted);margin-top:10px}
+#send{background:var(--accent);color:#fff;width:34px;height:34px;border-radius:10px;font-size:20px}
+#send:hover{filter:brightness(1.08)}
+#stop{background:var(--panel-2);color:var(--text);border:1px solid var(--line-strong);border-radius:10px}
