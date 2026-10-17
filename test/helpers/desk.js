@@ -56,6 +56,7 @@ function createDesk({ wallet, agent = 'gigi' } = {}) {
     walletPortfolioSeries: method('walletPortfolioSeries', () => ({ points: [], covered: 0, considered: 0, holdings: 0, total: 0, range: '30D' })),
     walletHolders: method('walletHolders', () => ({ mint: SOL, holders: 12345, top1: 8.8, top10: 38.3, risks: ['Low liquidity'], accounts: [{ address: '9WzDXwBbmkg8ZTbNMqUxvQRAyrZzDsGYdLVL9zYtAWWM', amount: 1000, pct: 8.83 }, { address: '51yZyDSnec4xnUv7XLRVYcDyV4x3wUtzrDcRaYbmQU5j', amount: 500, pct: 6.79 }] })),
     walletSearch: method('walletSearch', () => []), walletTrending: method('walletTrending', () => []),
+    walletDiscover: method('walletDiscover', kind => kind === 'narratives' ? [{ name: 'AI', slug: 'ai', description: 'agents', tokenCount: 12, marketCap: 1e9, volume: 2e7, change24h: 5 }] : [{ address: BONK, symbol: 'BONK', name: 'Bonk', priceUsd: 0.0000030404, change5m: 1.2, change1h: -0.5, change24h: -3.09, liquidityUsd: 500000, volume24h: 120000, marketCap: 2e8, createdAt: Date.now() - 86400000, dex: 'raydium' }]),
     walletWatchlistAdd: method('walletWatchlistAdd'), walletWatchlistRemove: method('walletWatchlistRemove'),
     walletAlertAdd: method('walletAlertAdd'), walletAlertRemove: method('walletAlertRemove'),
     walletPaperBuy: method('walletPaperBuy'), walletPaperSell: method('walletPaperSell'), walletPaperReset: method('walletPaperReset'), walletPaperCondition: method('walletPaperCondition'), walletPaperCancel: method('walletPaperCancel'),

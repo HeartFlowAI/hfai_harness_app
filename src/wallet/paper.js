@@ -6,7 +6,7 @@ const { randomUUID } = require('node:crypto');
 const STARTING_CASH = 1000;
 const FEE_BPS = 100;        // 1.00% assumed platform fee
 const SLIPPAGE_BPS = 50;    // 0.50% assumed slippage
-const PENDING_KINDS = ['limit', 'stop', 'takeProfit'];
+const PENDING_KINDS = ['limit', 'stop', 'takeProfit', 'stopLimit', 'trailing'];
 
 function normalizePaper(input) {
   const source = input && typeof input === 'object' ? input : {};
@@ -28,10 +28,12 @@ function normalizePaper(input) {
     }))
     : [];
   const pending = Array.isArray(source.pending)
-    ? source.pending.filter(order => order && order.mint && PENDING_KINDS.includes(order.kind) && (order.side === 'buy' || order.side === 'sell') && Number(order.trigger) > 0).slice(0, 50).map(order => ({
+    ? source.pending.filter(order => order && order.mint && PENDING_KINDS.includes(order.kind) && (order.side === 'buy' || order.side === 'sell') && (Number(order.trigger) > 0 || (order.kind === 'trailing' && (Number(order.trailPercent) > 0 || Number(order.trailAmount) > 0)))).slice(0, 50).map(order => ({
       id: String(order.id || ''), createdAt: Number(order.createdAt) || 0, mint: String(order.mint), symbol: String(order.symbol || ''),
       kind: order.kind, side: order.side, trigger: Number(order.trigger), usd: Number(order.usd) || 0,
-      amount: Number(order.amount) || 0, percent: Math.min(100, Math.max(1, Number(order.percent) || 100)), lastError: String(order.lastError || '')
+      amount: Number(order.amount) || 0, percent: Math.min(100, Math.max(1, Number(order.percent) || 100)), lastError: String(order.lastError || ''),
+      limitPrice: Number(order.limitPrice) || 0, trailPercent: Math.max(0, Number(order.trailPercent) || 0), trailAmount: Math.max(0, Number(order.trailAmount) || 0),
+      extreme: Number(order.extreme) || 0, groupId: typeof order.groupId === 'string' ? order.groupId : '', armed: order.armed === true
     }))
     : [];
   return { initial, cash, positions, orders, pending, paused: source.paused === true };
@@ -86,7 +88,8 @@ function valuation(paper, priceOf = () => 0) {
   const positions = Object.values(paper.positions).map(position => {
     const price = Number(priceOf(position.mint)) || 0;
     const value = position.amount * price;
-    return { ...position, price, value, unrealizedPnl: price > 0 ? value - position.cost : 0 };
+    const unrealizedPnl = price > 0 ? value - position.cost : 0;
+    return { ...position, price, value, avgPrice: position.amount > 0 ? position.cost / position.amount : 0, unrealizedPnl, roe: position.cost > 0 && price > 0 ? (unrealizedPnl / position.cost) * 100 : 0 };
   }).sort((a, b) => b.value - a.value);
   const holdingsValue = positions.reduce((sum, position) => sum + position.value, 0);
   const equity = paper.cash + holdingsValue;
@@ -111,22 +114,34 @@ function resetPaper(paper, cash) {
 // so a later order that can no longer be afforded stays pending with a reason.
 function shouldTrigger(order, price) {
   if (!(price > 0)) return false;
-  if (order.kind === 'limit') return order.side === 'buy' ? price <= order.trigger : price >= order.trigger;
-  if (order.kind === 'stop') return price <= order.trigger;
-  if (order.kind === 'takeProfit') return price >= order.trigger;
-  return false;
+  switch (order.kind) {
+    case 'limit': return order.side === 'buy' ? price <= order.trigger : price >= order.trigger;
+    case 'stop': return order.side === 'buy' ? price >= order.trigger : price <= order.trigger;
+    case 'takeProfit': return order.side === 'sell' ? price >= order.trigger : price <= order.trigger;
+    case 'stopLimit': return order.side === 'buy' ? price >= order.trigger : price <= order.trigger;
+    case 'trailing': {
+      const peak = order.extreme || price;
+      if (order.side === 'sell') { const stop = order.trailPercent > 0 ? peak * (1 - order.trailPercent / 100) : peak - order.trailAmount; return price <= stop; }
+      const stop = order.trailPercent > 0 ? peak * (1 + order.trailPercent / 100) : peak + order.trailAmount; return price >= stop;
+    }
+    default: return false;
+  }
 }
-function addPending(paper, { mint, symbol, kind, side, trigger, usd, amount, percent, now = Date.now(), id = randomUUID() } = {}) {
+function addPending(paper, { mint, symbol, kind, side, trigger, usd, amount, percent, limitPrice, trailPercent, trailAmount, groupId, now = Date.now(), id = randomUUID() } = {}) {
   if (!mint) throw new Error('Choose a token.');
-  let orderKind = PENDING_KINDS.includes(kind) ? kind : 'limit';
-  let orderSide = side === 'sell' ? 'sell' : 'buy';
-  if (orderSide === 'buy') orderKind = 'limit';
+  const orderKind = PENDING_KINDS.includes(kind) ? kind : 'limit';
+  const orderSide = side === 'sell' ? 'sell' : 'buy';
   const price = Number(trigger);
-  if (!(price > 0)) throw new Error('Enter a trigger price.');
-  const order = { id, createdAt: now, mint, symbol: symbol || '', kind: orderKind, side: orderSide, trigger: price, usd: 0, amount: 0, percent: 100, lastError: '' };
+  const limit = Number(limitPrice) || 0;
+  const trailPct = Math.max(0, Number(trailPercent) || 0);
+  const trailAbs = Math.max(0, Number(trailAmount) || 0);
+  if (orderKind === 'trailing') { if (!(trailPct > 0) && !(trailAbs > 0)) throw new Error('Set a trail percentage or amount.'); }
+  else if (!(price > 0)) throw new Error('Enter a trigger price.');
+  if (orderKind === 'stopLimit' && !(limit > 0)) throw new Error('Enter a limit price for the stop-limit order.');
+  const order = { id, createdAt: now, mint, symbol: symbol || '', kind: orderKind, side: orderSide, trigger: Number.isFinite(price) ? price : 0, usd: 0, amount: 0, percent: 100, lastError: '', limitPrice: limit, trailPercent: trailPct, trailAmount: trailAbs, extreme: 0, groupId: typeof groupId === 'string' ? groupId : '', armed: false };
   if (orderSide === 'buy') {
     const spend = Number(usd);
-    if (!(spend > 0)) throw new Error('Enter a USD amount for the buy condition.');
+    if (!(spend > 0)) throw new Error('Enter a USD amount for the buy order.');
     order.usd = spend;
   } else {
     order.percent = Math.min(100, Math.max(1, Number(percent) || 100));
@@ -134,6 +149,18 @@ function addPending(paper, { mint, symbol, kind, side, trigger, usd, amount, per
   paper.pending.push(order);
   if (paper.pending.length > 50) paper.pending.splice(0, paper.pending.length - 50);
   return order;
+}
+// One-cancels-other bracket: a take-profit and a stop-loss on the same position.
+// When either fills, the other is cancelled automatically.
+function addOco(paper, { mint, symbol, percent = 100, takeProfit, stopLoss, now = Date.now() } = {}) {
+  if (!mint) throw new Error('Choose a token.');
+  const tp = Number(takeProfit), sl = Number(stopLoss);
+  if (!(tp > 0) || !(sl > 0)) throw new Error('Set both a take-profit and a stop-loss price.');
+  const groupId = randomUUID();
+  const pct = Math.min(100, Math.max(1, Number(percent) || 100));
+  addPending(paper, { mint, symbol, side: 'sell', kind: 'takeProfit', trigger: tp, percent: pct, groupId, now });
+  addPending(paper, { mint, symbol, side: 'sell', kind: 'stop', trigger: sl, percent: pct, groupId, now });
+  return groupId;
 }
 function cancelPending(paper, id) {
   const before = paper.pending.length;
@@ -149,13 +176,17 @@ function evaluatePending(paper, priceOf = () => 0, now = Date.now()) {
   for (const order of queue) {
     if (!paper.pending.some(item => item.id === order.id)) continue;
     const price = Number(priceOf(order.mint)) || 0;
+    if (order.kind === 'trailing' && price > 0) order.extreme = order.side === 'sell' ? Math.max(order.extreme || 0, price) : (order.extreme ? Math.min(order.extreme, price) : price);
     if (!shouldTrigger(order, price)) continue;
+    // A stop-limit arms into a plain limit order at its limit price instead of filling.
+    if (order.kind === 'stopLimit') { order.kind = 'limit'; order.trigger = order.limitPrice || order.trigger; order.armed = true; continue; }
     try {
       if (order.side === 'buy') buy(paper, { mint: order.mint, symbol: order.symbol, usd: order.usd, price, now, id: randomUUID() });
-      else sell(paper, { mint: order.mint, percent: order.percent, price, now, id: randomUUID() });
+      else sell(paper, { mint: order.mint, symbol: order.symbol, percent: order.percent, price, now, id: randomUUID() });
       paper.pending = paper.pending.filter(item => item.id !== order.id);
+      if (order.groupId) paper.pending = paper.pending.filter(item => item.groupId !== order.groupId);
       const filled = paper.orders[paper.orders.length - 1];
-      if (filled) filled.triggeredBy = order.id;
+      if (filled) { filled.triggeredBy = order.id; if (order.groupId) filled.ocoGroup = order.groupId; }
       executed.push(order);
     } catch (error) {
       order.lastError = error.message;
@@ -163,4 +194,4 @@ function evaluatePending(paper, priceOf = () => 0, now = Date.now()) {
   }
   return executed;
 }
-module.exports = { STARTING_CASH, FEE_BPS, SLIPPAGE_BPS, PENDING_KINDS, normalizePaper, fillPrice, buy, sell, valuation, resetPaper, shouldTrigger, addPending, cancelPending, clearPending, evaluatePending };
+module.exports = { STARTING_CASH, FEE_BPS, SLIPPAGE_BPS, PENDING_KINDS, normalizePaper, fillPrice, buy, sell, valuation, resetPaper, shouldTrigger, addPending, addOco, cancelPending, clearPending, evaluatePending };

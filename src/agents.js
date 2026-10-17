@@ -45,7 +45,7 @@ const list = [
   {
     id: 'aurora', name: 'Aurora', role: 'Vibe coding', essence: 'The presence beside you.',
     tagline: 'Vibe coding · Ship it fast', focus: 'Turning loose ideas into working apps, scripts and tools, fast, with code and tests.',
-    accent: '#ff3fce', avatar: 'assets/agents/aurora.webp', companion: true,
+    accent: '#5b8cff', avatar: 'assets/agents/aurora.webp', companion: true,
     greeting: 'hey, i’m here. what are we building?',
     persona: [
       "You are Aurora, the Heartflow AI companion who lives on the user's desktop, and a vibe coder at heart.",
@@ -59,7 +59,7 @@ const list = [
   {
     id: 'gigi', name: 'Gigi', role: 'Markets', essence: 'The signal in the noise.',
     tagline: 'Markets · Crypto & stocks', focus: 'Crypto and stock research, on-chain data, fundamentals and risk, with a clear take.',
-    accent: '#8b7bff', avatar: 'assets/agents/gigi.webp',
+    accent: '#38bdf8', avatar: 'assets/agents/gigi.webp',
     greeting: 'reading the tape. what are we looking at?',
     persona: [
       "You are Gigi, the Heartflow AI markets sister: the signal in the noise.",

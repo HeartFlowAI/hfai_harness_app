@@ -45,8 +45,7 @@ test('binanceHistory maps klines to OHLCV points and drops bad rows', async () =
   assert.deepEqual(points, [{ t: 1000, o: 1, h: 2, l: 0.5, c: 1.5, p: 1.5, v: 120 }, { t: 3000, o: 1, h: 2.5, l: 0.5, c: 2.5, p: 2.5, v: 80 }]);
 });
 
-test('trending reads Solana token boosts and enriches each with its best pair', async () => {
-  const fetchImpl = async url => {
+test('trending reads Solana token boosts and enriches each with its best pair', async () => {  const fetchImpl = async url => {
     const u = String(url);
     if (u.includes('token-boosts/top')) return { ok: true, json: async () => [{ chainId: 'solana', tokenAddress: 'MintBoosts' }, { chainId: 'ethereum', tokenAddress: '0xdead' }] };
     if (u.includes('/tokens/v1/solana/MintBoosts')) return { ok: true, json: async () => [{ chainId: 'solana', dexId: 'raydium', baseToken: { address: 'MintBoosts', symbol: 'BOOST', name: 'Boosted' }, priceUsd: '0.5', priceChange: { h24: '12' }, liquidity: { usd: '50000' }, volume: { h24: '9000' }, marketCap: '1000000' }] };
@@ -56,4 +55,30 @@ test('trending reads Solana token boosts and enriches each with its best pair', 
   assert.equal(items.length, 1);
   assert.equal(items[0].symbol, 'BOOST');
   assert.equal(items[0].priceUsd, 0.5);
+});
+
+test('tokenProfiles and takeovers resolve Solana addresses to base pairs', async () => {
+  const fetchImpl = async url => {
+    const u = String(url);
+    if (u.includes('token-profiles/latest')) return { ok: true, json: async () => [{ chainId: 'solana', tokenAddress: 'MintP' }, { chainId: 'ethereum', tokenAddress: '0x' }] };
+    if (u.includes('community-takeovers/latest')) return { ok: true, json: async () => [{ chainId: 'solana', tokenAddress: 'MintT' }] };
+    if (u.includes('/tokens/v1/solana/MintP')) return { ok: true, json: async () => [{ chainId: 'solana', dexId: 'pumpswap', baseToken: { address: 'MintP', symbol: 'PROF', name: 'Profile' }, priceUsd: '0.01', priceChange: { h24: '5' }, liquidity: { usd: '20000' }, volume: { h24: '3000' }, marketCap: '500000', txns: { h24: { buys: 10, sells: 4 } }, pairCreatedAt: 1700000000000 }] };
+    if (u.includes('/tokens/v1/solana/MintT')) return { ok: true, json: async () => [{ chainId: 'solana', dexId: 'raydium', baseToken: { address: 'MintT', symbol: 'TAKE', name: 'Takeover' }, priceUsd: '2', priceChange: { h24: '-3' }, liquidity: { usd: '80000' }, volume: { h24: '9000' }, marketCap: '4000000' }] };
+    throw new Error('unexpected ' + u);
+  };
+  const profiles = await providers.tokenProfiles({ fetchImpl });
+  const takes = await providers.takeovers({ fetchImpl });
+  assert.equal(profiles[0].symbol, 'PROF');
+  assert.equal(profiles[0].buys24h, 10);
+  assert.equal(profiles[0].createdAt, 1700000000000);
+  assert.equal(takes[0].symbol, 'TAKE');
+});
+
+test('narratives maps DexScreener metas with 24h change', async () => {
+  const fetchImpl = async url => { assert.match(url, /metas\/trending\/v1/); return { ok: true, json: async () => [{ name: 'AI', slug: 'ai', description: 'agents', marketCap: 1000000000, liquidity: 5000000, volume: 20000000, tokenCount: 120, marketCapChange: { h24: 12.5, h1: 2 } }] }; };
+  const list = await providers.narratives({ fetchImpl });
+  assert.equal(list.length, 1);
+  assert.equal(list[0].name, 'AI');
+  assert.equal(list[0].change24h, 12.5);
+  assert.equal(list[0].tokenCount, 120);
 });

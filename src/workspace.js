@@ -9,6 +9,7 @@
   const paper = () => wallet()?.paper || null;
   const money = v => { const n = Number(v || 0), abs = Math.abs(n); if (abs === 0) return '$0'; const max = abs >= 1 ? 2 : Math.max(2, Math.min(8, Math.ceil(-Math.log10(abs)) + 3)); return `$${n.toLocaleString(undefined, { minimumFractionDigits: abs >= 1 ? 2 : 0, maximumFractionDigits: max })}`; };
   const amount = v => Number(v || 0) >= 1 ? Number(v).toLocaleString(undefined, { maximumFractionDigits: 4 }) : Number(v || 0).toPrecision(4);
+  const num = v => { if (v === null || v === undefined || v === '') return ''; const n = Number(v); if (!Number.isFinite(n)) return String(v); return n.toLocaleString(undefined, { maximumFractionDigits: Math.abs(n) >= 1 ? 2 : 8 }); }; 
   const short = m => typeof m === 'string' && m.length > 10 ? `${m.slice(0, 4)}…${m.slice(-4)}` : String(m || '');
   const sym = (m, st) => (st?.holdings || []).find(h => h.mint === m)?.symbol || (st?.markets || []).find(x => x.mint === m)?.symbol || (st?.watchlist || []).find(w => w.mint === m)?.symbol || short(m);
   const call2 = promise => promise.then(result => result.ok ? result.value : Promise.reject(Error(result.error)));
@@ -17,16 +18,20 @@
   const ic = (name, size = 16) => window.AuroraIcons.icon(name, size);
 
   const persisted = (() => { try { return JSON.parse(localStorage.getItem('aurora-desk-v2') || '{}') || {}; } catch { return {}; } })();
-  const savePrefs = () => { try { localStorage.setItem('aurora-desk-v2', JSON.stringify({ section, chatW, chatOpen, tradeCandles })); } catch {} };
+  const savePrefs = () => { try { localStorage.setItem('aurora-desk-v2', JSON.stringify({ section, chatW, chatOpen, tradeCandles, tradeSide, tradeType, tradeTab, discoverTab })); } catch {} };
   const SECTIONS = [['canvas', 'Canvas', 'chat'], ['portfolio', 'Portfolio', 'portfolio'], ['trade', 'Trade', 'trade'], ['discover', 'Discover', 'discover'], ['research', 'Research', 'research'], ['strategies', 'Strategies', 'strategies'], ['journal', 'Journal', 'journal']];
   let section = SECTIONS.some(x => x[0] === persisted.section) ? persisted.section : 'canvas';
   let chatW = persisted.chatW || 400, chatOpen = persisted.chatOpen === true;
   let open = false, chartMint = '', pfChartMint = '', reportOpen = '', reportText = '';
   let pfRange = '30D', tradeRange = '7D', tradeCandles = persisted.tradeCandles !== false, journalKind = 'all', journalFilter = '';
+  let tradeSide = persisted.tradeSide === 'sell' ? 'sell' : 'buy', tradeType = ['limit', 'stop', 'stopLimit', 'trailing', 'oco'].includes(persisted.tradeType) ? persisted.tradeType : 'market';
+  let tradeTab = ['fills', 'holders'].includes(persisted.tradeTab) ? persisted.tradeTab : 'orders';
   let pfSort = { key: 'value', dir: -1 }, pfFilter = '';
   const tokenCache = new Map();
   const holdersCache = new Map();
-  const trending = { loaded: false, items: [], loading: false };
+  const discover = { items: {}, loading: {}, error: {} };
+  let discoverTab = ['new', 'takeovers', 'narratives'].includes(persisted.discoverTab) ? persisted.discoverTab : 'trending';
+  let discoverQuery = '', discoverMinLiq = 0, discoverSort = { key: 'volume24h', dir: -1 };
 
   const ws = mk('div'); ws.id = 'trading-workspace'; ws.hidden = true;
   ws.innerHTML = `<header class="ws-top"><div class="ws-brand"><img src="assets/agents/gigi.webp" alt=""><div><strong><span class="dot"></span>Gigi</strong><small id="ws-conn">Solana desk</small></div></div><label class="ws-search"><span class="ws-search-ico"></span><input id="ws-search" type="search" placeholder="Search tokens by name or mint" maxlength="60" aria-label="Search tokens"><kbd>⌘K</kbd></label><div class="ws-search-results" id="ws-search-results" hidden></div><span class="ws-top-spacer"></span><div class="ws-seg" id="ws-seg"><button data-exec="paper">Paper</button><button data-exec="live">Live</button></div><button id="ws-chat-visible" class="hf-btn ghost" type="button">Chat</button><button id="ws-settings" class="hf-btn ghost" type="button">Settings</button><button id="ws-close" class="hf-btn" type="button">Back to chat</button></header><nav class="ws-tabs hf-tabs" id="ws-tabs" role="tablist" aria-label="Trading sections"></nav><div class="ws-split" id="ws-split"><div class="ws-content" id="ws-content"></div><aside class="ws-chat" id="ws-chat" role="complementary"><div class="ws-resizer" id="ws-resizer" role="separator" aria-label="Resize chat"></div><div class="ws-chat-head"><img src="assets/agents/gigi.webp" alt=""><div><strong>Gigi</strong> <small>markets sister</small></div><span class="ws-chat-spacer"></span><button class="hf-btn icon sm" id="ws-chat-collapse" type="button" title="Collapse chat"></button></div><div class="ws-chat-slot" id="ws-chat-slot"></div></aside></div><div class="ws-palette" id="ws-palette" hidden><div class="ws-palette-box"><input id="ws-palette-input" class="hf-input" placeholder="Search tokens or type a command…" aria-label="Command palette" autocomplete="off"><div class="ws-list" id="ws-palette-list"></div></div></div>`;
@@ -285,7 +290,7 @@
     return card;
   }
 
-  function rowsBody(rows, type) { if (!Array.isArray(rows) || !rows.length) return emptyState('journal', 'Nothing to show', 'No rows were provided.'); const list = mk('div', 'ws-list'); for (const row of rows) { if (Array.isArray(row)) list.append(listItem(String(row[0] ?? ''), row.slice(1).join(' · '))); else if (row && typeof row === 'object') list.append(listItem(String(row.name || row.symbol || row.label || ''), String(row.value ?? row.sub ?? ''))); } return list; }
+  function rowsBody(rows, type) { if (!Array.isArray(rows) || !rows.length) return emptyState('journal', 'Nothing to show', 'No rows were provided.'); const list = mk('div', 'ws-list'); const cell = value => (typeof value === 'number' ? num(value) : String(value == null ? '' : value)); for (const row of rows) { if (Array.isArray(row)) list.append(listItem(cell(row[0]), row.slice(1).map(cell).join(' · '))); else if (row && typeof row === 'object') list.append(listItem(String(row.name || row.symbol || row.label || ''), cell(row.value ?? row.sub ?? ''))); } return list; }
   function metricsBody(v) { const data = v.source.data && typeof v.source.data === 'object' ? v.source.data : {}; const wrap = mk('div', 'ws-stats'); for (const [k, val] of Object.entries(data)) wrap.append(metric(keyLabel(k), typeof val === 'number' ? money(val) : String(val))); return Object.keys(data).length ? wrap : emptyState('chart', 'No metrics', 'No metrics were provided.'); }
   const keyLabel = k => k.replace(/([A-Z])/g, ' $1').replace(/^./, c => c.toUpperCase());
   function holdersBody(mint) {
@@ -345,7 +350,7 @@
       for (const h of visible.slice(0, 15)) seriesOf(h.mint).then(points => { const row = tb.querySelector(`tr[data-mint="${CSS.escape(h.mint)}"]`); if (!row || !points || points.length < 2) return; row.querySelector('.ws-spark')?.append(sparkline(points)); const vs = points.map(pt => pt.p); const pl = (vs[vs.length - 1] - vs[0]) / vs[0] * 100; const cell = row.querySelector('.ws-pl'); if (cell) { cell.textContent = `${pl >= 0 ? '+' : ''}${pl.toFixed(2)}%`; cell.className = `num ws-pl ${pl >= 0 ? 'hf-up' : 'hf-down'}`; } });
     }
 
-    if (p) { const list = mk('div', 'ws-list'); for (const pos of p.positions) list.append(listItem(pos.symbol, `${amount(pos.amount)} tokens`, money(pos.value), pos.unrealizedPnl)); const actions = mk('div', 'ws-ctrls'); actions.append(btn('Exit & pause', { sm: true }, run(async () => call2(window.aurora.walletSessionPause({ exit: true })))), btn('Reset', { sm: true, variant: 'ghost' }, run(async () => call2(window.aurora.walletPaperReset({}))))); root.append(panel(`Paper · cash ${money(p.cash)} · equity ${money(p.equity)}`, { actions }, p.positions.length ? list : emptyState('trade', 'No paper positions', 'Buy in Trade to open one.'))); }
+    if (p) { const list = mk('div', 'ws-list'); for (const pos of p.positions) { const badge = mk('span', `hf-badge${(pos.roe || 0) >= 0 ? ' ok' : ' live'}`, `${(pos.roe || 0) >= 0 ? '+' : ''}${Number(pos.roe || 0).toFixed(2)}%`); list.append(listItem(pos.symbol, `${amount(pos.amount)} @ ${money(pos.avgPrice)} · ${(pos.unrealizedPnl || 0) >= 0 ? '+' : ''}${money(pos.unrealizedPnl)}`, money(pos.value), undefined, undefined, badge)); } const actions = mk('div', 'ws-ctrls'); actions.append(btn('Exit & pause', { sm: true }, run(async () => call2(window.aurora.walletSessionPause({ exit: true })))), btn('Reset', { sm: true, variant: 'ghost' }, run(async () => call2(window.aurora.walletPaperReset({}))))); root.append(panel(`Paper · cash ${money(p.cash)} · equity ${money(p.equity)} · P/L ${(p.totalPnl || 0) >= 0 ? '+' : ''}${money(p.totalPnl)}`, { actions }, p.positions.length ? list : emptyState('trade', 'No paper positions', 'Buy in Trade to open one.'))); }
     if ((s.watchlist || []).length) { const list = mk('div', 'ws-list'); for (const it of s.watchlist) list.append(listItem(it.symbol, 'watched', money(it.price), it.change24h)); root.append(panel('Watchlist', {}, list)); }
     if (markets.length) root.append(panel('Markets', {}, marketsTable(markets)));
   }
@@ -364,6 +369,109 @@
     table.append(tb); return table;
   }
 
+  function openOrdersBody() {
+    const pending = paper()?.pending || [];
+    if (!pending.length) return emptyState('journal', 'No open orders', 'Limit and stop orders you place appear here.');
+    const list = mk('div', 'ws-list');
+    for (const o of pending) { const ct = mk('div', 'ws-ctrls'); ct.append(ibtn('delete', 'Cancel order', run(async () => call2(window.aurora.walletPaperCancel(o.id))))); list.append(listItem(`${o.side === 'buy' ? 'Buy' : 'Sell'} ${o.symbol || short(o.mint)}`, `${o.kind} @ ${money(o.trigger)}${o.usd ? ` · ${money(o.usd)}` : ` · ${o.percent}%`}${o.lastError ? ' · ' + o.lastError : ''}`, undefined, undefined, ct, mk('span', `hf-badge${o.side === 'buy' ? ' ok' : ' live'}`, o.side))); }
+    return list;
+  }
+  function fillsBody(mint) {
+    const orders = (paper()?.orders || []).filter(o => o.mint === mint).slice(-10).reverse();
+    if (!orders.length) return emptyState('journal', 'No fills yet', 'Paper trades on this token appear here.');
+    const list = mk('div', 'ws-list');
+    for (const o of orders) list.append(listItem(`${o.side === 'buy' ? 'Bought' : 'Sold'} ${o.symbol || short(o.mint)}`, `${amount(o.amount)} @ ${money(o.priceUsd)} · ${new Date(o.at).toLocaleString()}`, money(o.valueUsd), undefined, undefined, mk('span', `hf-badge${o.side === 'buy' ? ' ok' : ' live'}`, o.side)));
+    return list;
+  }
+  function tradeInfo(mint, symName, s) {
+    const bar = mk('div', 'hf-tabs ws-subtabs');
+    const box = mk('div', 'ws-subpanel');
+    const renderTab = () => {
+      for (const b of bar.querySelectorAll('button')) b.setAttribute('aria-selected', String(b.dataset.t === tradeTab));
+      box.replaceChildren(tradeTab === 'fills' ? fillsBody(mint) : tradeTab === 'holders' ? holdersBody(mint) : openOrdersBody());
+    };
+    for (const [id, label] of [['orders', 'Open orders'], ['fills', 'Recent fills'], ['holders', 'Holders']]) { const b = mk('button', 'hf-tab'); b.type = 'button'; b.dataset.t = id; b.setAttribute('role', 'tab'); b.append(mk('span', '', label)); b.onclick = () => { tradeTab = id; savePrefs(); renderTab(); }; bar.append(b); }
+    const card = mk('div', 'hf-panel ws-info'); const body = mk('div', 'hf-body'); body.append(bar, box); card.append(body);
+    renderTab();
+    return card;
+  }
+  function orderCard(mint, symName, pair, s) {
+    const live = cfg().execution === 'live' && wallet()?.wc?.connected === true;
+    const oco = tradeType === 'oco';
+    const buy = tradeSide === 'buy' && !oco;
+    const cash = Number(paper()?.cash || 0);
+    const held = (paper()?.positions || []).find(x => x.mint === mint);
+    const price = Number(pair.priceUsd || 0);
+    const head = mk('header'); head.append(mk('h3', '', 'Place order'), mk('span', 'ws-top-spacer'), mk('span', `ws-mode ${cfg().execution === 'live' ? 'live' : 'paper'}`, cfg().execution === 'live' ? 'LIVE' : 'PAPER'));
+    const body = mk('div', 'hf-body');
+    body.append(mk('p', 'ws-order-help', cfg().execution === 'live' && live ? 'Live mode · real funds move. You confirm every trade.' : `Paper trading · simulated balance ${money(cash)}. No real funds move.`));
+    if (!oco) { const sideSeg = mk('div', 'ws-seg ws-sideseg'); for (const [label, val] of [['Buy', 'buy'], ['Sell', 'sell']]) { const b = mk('button', tradeSide === val ? `active ${val}` : val, label); b.type = 'button'; b.onclick = () => { tradeSide = val; savePrefs(); draw(); }; sideSeg.append(b); } body.append(sideSeg); }
+    const TYPES = [['Market', 'market'], ['Limit', 'limit'], ['Stop', 'stop'], ['Stop-limit', 'stopLimit'], ['Trailing stop', 'trailing'], ['Take-profit / Stop-loss', 'oco']];
+    const typeSel = mk('select', 'hf-input'); for (const [label, val] of TYPES) { const o = mk('option', '', label); o.value = val; typeSel.append(o); } typeSel.value = tradeType; typeSel.onchange = () => { tradeType = typeSel.value; savePrefs(); draw(); };
+    const typeField = mk('div', 'hf-field'); typeField.append(mk('label', '', 'Order type'), typeSel); body.append(typeField);
+    const hint = tradeType === 'market' ? (buy ? 'Fill now at the market price.' : 'Sell now at the market price.')
+      : tradeType === 'limit' ? (buy ? 'Buy only at your price or lower.' : 'Sell only at your price or higher.')
+        : tradeType === 'stop' ? (buy ? 'Buy when the price rises to your trigger.' : 'Sell if the price falls to your trigger.')
+          : tradeType === 'stopLimit' ? (buy ? 'Arm a limit buy once the price reaches the stop.' : 'Arm a limit sell once the price falls to the stop.')
+            : tradeType === 'trailing' ? (buy ? 'Buy when price rises from a recent low by the trail.' : 'Sell if price falls from its high by the trail.')
+              : 'Sell a position automatically at a take-profit or stop-loss.';
+    body.append(mk('p', 'ws-order-hint', hint));
+    const refField = label => { const f = field(label, 'number'); const inp = f.querySelector('input'); if (price > 0) inp.value = String(Number(price.toPrecision(6))); return f; };
+    let triggerField = null, limitField = null, trailField = null, tpField = null, slField = null;
+    if (tradeType === 'limit' || tradeType === 'stop') triggerField = refField('Trigger price (USD)');
+    else if (tradeType === 'stopLimit') { triggerField = refField('Stop price (USD)'); limitField = refField('Limit price (USD)'); }
+    else if (tradeType === 'trailing') { trailField = field('Trail (%)', 'number'); trailField.querySelector('input').value = '10'; }
+    else if (tradeType === 'oco') { tpField = field('Take-profit (%)', 'number'); tpField.querySelector('input').value = '25'; slField = field('Stop-loss (%)', 'number'); slField.querySelector('input').value = '10'; }
+    for (const f of [triggerField, limitField, trailField, tpField, slField]) if (f) body.append(f);
+    const amountField = field(oco || !buy ? 'Percent of position' : 'Amount (USD)', 'number'); const amountInput = amountField.querySelector('input'); amountInput.value = oco || !buy ? '100' : '25'; body.append(amountField);
+    const avail = mk('div', 'ws-ticket-avail'); avail.append(mk('span', '', oco || !buy ? 'Position' : 'Available'), mk('b', '', oco || !buy ? (held ? `${amount(held.amount)} ${symName}` : `0 ${symName}`) : money(cash))); body.append(avail);
+    const presets = mk('div', 'ws-seg ws-presets'); for (const v of [25, 50, 100]) { const b = mk('button', '', `${v}%`); b.type = 'button'; b.onclick = () => { amountInput.value = oco || !buy ? String(v) : String(Math.round(cash * v) / 100); update(); }; presets.append(b); } body.append(presets);
+    const est = mk('div', 'ws-ticket-est');
+    const update = () => {
+      if (oco) { const pct = Number(amountInput.value) || 0; est.replaceChildren(mk('span', '', 'Bracket on'), mk('b', '', held ? `${amount(held.amount * pct / 100)} ${symName}` : 'no position')); return; }
+      if (buy) { const usd = Number(amountInput.value) || 0; est.replaceChildren(mk('span', '', 'You receive'), mk('b', '', pair.priceUsd && usd > 0 ? `${amount(usd / pair.priceUsd)} ${symName}` : '—')); }
+      else { const pct = Number(amountInput.value) || 0; est.replaceChildren(mk('span', '', 'You sell'), mk('b', '', held ? `${amount(held.amount * pct / 100)} ${symName}` : 'no position')); }
+    };
+    amountInput.oninput = update; update(); body.append(est);
+    const actions = mk('div', 'ws-ticket-actions');
+    const TYPELABEL = { limit: 'limit', stop: 'stop', stopLimit: 'stop-limit', trailing: 'trailing' };
+    const label = oco ? 'Set take-profit / stop-loss' : tradeType === 'market' ? `Paper ${buy ? 'buy' : 'sell'} ${symName}` : `Paper ${TYPELABEL[tradeType]} ${buy ? 'buy' : 'sell'}`;
+    actions.append(btn(label, { variant: oco || !buy ? 'sell' : 'buy' }, run(async () => {
+      const symbol = pair.symbol;
+      if (oco) { const tp = Number(inputOf(tpField)), sl = Number(inputOf(slField)); if (!(tp > 0) || !(sl > 0)) throw Error('Set take-profit and stop-loss percentages.'); if (!(price > 0)) throw Error('No live price yet.'); return call2(window.aurora.walletPaperCondition({ mint, symbol, kind: 'oco', side: 'sell', percent: Number(amountInput.value), takeProfit: price * (1 + tp / 100), stopLoss: price * (1 - sl / 100) })); }
+      if (tradeType === 'market') return buy ? call2(window.aurora.walletPaperBuy({ mint, symbol, usd: Number(amountInput.value) })) : call2(window.aurora.walletPaperSell({ mint, percent: Number(amountInput.value) }));
+      const payload = { mint, symbol, side: buy ? 'buy' : 'sell' };
+      if (buy) payload.usd = Number(amountInput.value); else payload.percent = Number(amountInput.value);
+      if (tradeType === 'trailing') payload.trailPercent = Number(inputOf(trailField));
+      else { payload.kind = tradeType === 'stopLimit' ? 'stopLimit' : tradeType; payload.trigger = Number(inputOf(triggerField)); if (tradeType === 'stopLimit') payload.limitPrice = Number(inputOf(limitField)); }
+      return call2(window.aurora.walletPaperCondition(payload));
+    })));
+    if (live && !oco) {
+      const realHeld = (s.holdings || []).find(x => x.mint === mint);
+      actions.append(btn('Live buy', { variant: 'primary' }, run(async () => { const usd = Number(amountInput.value); if (!(usd > 0)) throw Error('Enter a USD amount.'); const limits = cfg().limits || {}; const heldValue = (s.holdings || []).filter(x => x.mint === mint).reduce((sum, x) => sum + x.value, 0); if (limits.maxPositionUsd && heldValue + usd > limits.maxPositionUsd) throw Error(`Position cap is ${money(limits.maxPositionUsd)}.`); return executeLive({ mint, side: 'buy', amountUi: usd / pair.priceUsd, usd, symbol: symName }); })));
+      if (realHeld) actions.append(btn('Live sell all', { variant: 'sell' }, run(async () => executeLive({ mint, side: 'sell', amountUi: realHeld.amount, symbol: symName }))));
+    }
+    body.append(actions);
+    if (cfg().execution === 'live' && !live) body.append(mk('p', 'ws-ticket-slip', 'Live mode is on but no wallet is connected. Connect one in Settings, Wallet to place real trades.'));
+    body.append(mk('p', 'ws-ticket-slip', 'Paper fills assume a 1% fee and 0.5% slippage.'));
+    const card = mk('div', 'hf-panel ws-ticket'); card.append(head, body); return card;
+  }
+
+  function gigiCard(mint, symName, s) {
+    const ctx = mk('div', 'ws-gigi-ctx'); ctx.append(mk('b', '', symName), mk('span', '', `${cfg().execution === 'live' ? 'LIVE' : 'PAPER'} · ${money(paper()?.cash)}`));
+    const ta = mk('textarea', 'hf-input ws-gigi-input'); ta.rows = 2; ta.placeholder = 'Ask Gigi to trade or watch for you: “buy $50 paper if it dips 5%”, “alert me above $120”, “build a strategy and ask before executing”.';
+    const chips = mk('div', 'ws-chips ws-gigi-chips');
+    for (const q of ['Buy $50 paper now', 'Limit buy 5% below', 'Alert on a 10% move', 'Strategy with approval']) { const c = mk('button', 'ws-chip', q); c.type = 'button'; c.onclick = () => { ta.value = q; ta.focus(); }; chips.append(c); }
+    const send = btn('Send to Gigi', { variant: 'primary' }, () => {
+      const text = ta.value.trim(); if (!text) { window.toast('Type what you want Gigi to do.'); return; }
+      const prompt = `Trade desk: ${symName} (${mint}). Execution mode ${cfg().execution || 'paper'}, paper cash ${money(paper()?.cash)}. Instruction: ${text}\n\nExecute paper trades on my behalf and tell me exactly what you did. Never place a live trade without my explicit approval; if I only want a heads-up, create a signal or alert instead.`;
+      ta.value = ''; chatOpen = true; savePrefs(); draw();
+      call2(window.aurora.send(prompt, [])).then(() => window.toast('Sent to Gigi.')).catch(error => window.toast(error.message));
+    });
+    const head = mk('header'); head.append(mk('h3', '', 'Ask Gigi'), mk('span', 'ws-top-spacer'));
+    const body = mk('div', 'hf-body'); body.append(ctx, ta, chips, send);
+    const card = mk('div', 'hf-panel ws-gigibox'); card.append(head, body); return card;
+  }
   function drawTrade(root, s) {
     if (!chartMint) {
       const first = (s.markets || [])[0];
@@ -374,8 +482,8 @@
     const symbolName = pair.symbol || sym(chartMint, s);
     const change = Number(pair.change24h || 0);
     const actions = [
-      btn('Ask Gigi', { sm: true, variant: 'ghost', icon: 'chat' }, () => askGigi(`Research ${symbolName} (${chartMint}): market, holders, behavior, controls, locks and narrative. Separate facts from inference.`)),
       btn('Watch', { sm: true, variant: 'ghost', icon: 'watch' }, run(async () => { const data = await call2(window.aurora.walletWatchlistAdd(chartMint)); window.toast(`${symbolName.trim()} added to your watchlist.`); return data; })),
+      btn('Ask Gigi', { sm: true, variant: 'ghost', icon: 'chat' }, () => askGigi(`Research ${symbolName} (${chartMint}): market, holders, behavior, controls, locks and narrative. Separate facts from inference.`)),
       btn('Holders', { sm: true, variant: 'ghost', icon: 'holders' }, run(async () => { await call2(window.aurora.walletViewShow({ type: 'holders', title: `Holders · ${symbolName}`, source: { kind: 'holders', mint: chartMint } })); section = 'canvas'; savePrefs(); }))
     ];
     const header = mk('div', 'ws-head ws-trade-head');
@@ -385,10 +493,12 @@
     heading.append(nameRow, priceRow);
     const ha = mk('div', 'ws-head-actions'); ha.append(...actions);
     header.append(heading, ha); root.append(header);
+    const meta = mk('div', 'ws-trademeta');
+    meta.append(mk('span', '', `Liquidity ${pair.liquidityUsd ? '$' + compact(pair.liquidityUsd) : '—'}`), mk('span', '', `Vol 24h ${pair.volume24h ? '$' + compact(pair.volume24h) : '—'}`), mk('span', '', `Mkt cap ${pair.marketCap ? '$' + compact(pair.marketCap) : '—'}`), mk('span', 'ws-top-spacer'), mk('span', `hf-badge ${safety.level ? safeCls(safety.level) : 'muted'}`, safety.level ? (safety.level === 'ok' ? 'mint/freeze revoked' : (safety.flags?.[0] || safety.level)) : 'safety unknown'));
+    root.append(meta);
     if ((s.markets || []).length) { const chips = mk('div', 'ws-chips ws-trade-chips'); for (const m of s.markets) { const chip = mk('button', 'ws-chip' + (m.mint === chartMint ? ' active' : ''), m.symbol); chip.type = 'button'; chip.onclick = () => selectToken(m.mint); chips.append(chip); } root.append(chips); }
     const grid = mk('div', 'ws-trade'); const left = mk('div', 'ws-trade-left'); const right = mk('div', 'ws-trade-right');
     const RANGE_LABEL = { '1D': '15m', '7D': '1h', '30D': '4h', '3M': '1D', '6M': '1D', '1Y': '1D', ALL: '1W' };
-
     const legend = mk('div', 'ws-ohlc');
     const typeSeg = mk('div', 'ws-seg ws-charttype');
     for (const [label, val] of [['Line', false], ['Candles', true]]) { const b = mk('button', tradeCandles === val ? 'active' : '', label); b.type = 'button'; b.setAttribute('aria-pressed', String(tradeCandles === val)); b.onclick = () => { tradeCandles = val; savePrefs(); draw(); }; typeSeg.append(b); }
@@ -404,53 +514,75 @@
       if (tradeCandles && points.some(p => p.o != null)) drawCandles(chart, points, 360); else drawChart(chart, points, 320);
     });
     else chart.append(skeleton(3));
-
-    const stats = mk('div', 'ws-statbar');
-    stats.append(metric('Liquidity', pair.liquidityUsd ? `$${compact(pair.liquidityUsd)}` : '—'), metric('Volume 24h', pair.volume24h ? `$${compact(pair.volume24h)}` : '—'), metric('Market cap', pair.marketCap ? `$${compact(pair.marketCap)}` : '—'), metric('24h change', pair.change24h != null ? `${change >= 0 ? '+' : ''}${change.toFixed(2)}%` : '—', change >= 0 ? 'hf-up' : 'hf-down'), metric('Safety', safety.level ? (safety.level === 'ok' ? 'revoked' : (safety.flags?.[0] || safety.level)) : 'unknown', safeCls(safety.level)));
-    left.append(stats);
-    left.append(panel('Holders', {}, holdersBody(chartMint)));
-
-    const spend = field('Amount (USD)', 'number'); const spendInput = spend.querySelector('input'); spendInput.value = '25'; const est = mk('div', 'ws-ticket-est');
-    const estimate = () => { const usd = Number(spendInput.value) || 0; est.replaceChildren(mk('span', '', 'You receive'), mk('b', '', pair.priceUsd && usd > 0 ? `${amount(usd / pair.priceUsd)} ${symbolName}` : '—')); };
-    spendInput.oninput = estimate; estimate();
-    const presets = mk('div', 'ws-seg ws-presets'); for (const v of [25, 50, 100]) { const b = mk('button', '', `$${v}`); b.type = 'button'; b.onclick = () => { spendInput.value = String(v); estimate(); }; presets.append(b); }
-    const held = (paper()?.positions || []).find(x => x.mint === chartMint);
-    const ticketActions = mk('div', 'ws-ticket-actions');
-    ticketActions.append(btn(`Paper buy`, { variant: 'primary' }, run(async () => call2(window.aurora.walletPaperBuy({ mint: chartMint, usd: Number(spendInput.value), symbol: pair.symbol })))));
-    if (held) ticketActions.append(btn('Sell all', { variant: 'ghost' }, run(async () => call2(window.aurora.walletPaperSell({ mint: chartMint, percent: 100 })))));
-    if (cfg().execution === 'live' && wallet()?.wc?.connected) {
-      const realHeld = (s.holdings || []).find(x => x.mint === chartMint);
-      ticketActions.append(btn('Live buy', { variant: 'primary' }, run(async () => { const usd = Number(spendInput.value); if (!(usd > 0)) throw Error('Enter a USD amount.'); const limits = cfg().limits || {}; const heldValue = (s.holdings || []).filter(x => x.mint === chartMint).reduce((sum, x) => sum + x.value, 0); if (limits.maxPositionUsd && heldValue + usd > limits.maxPositionUsd) throw Error(`Position cap is ${money(limits.maxPositionUsd)}.`); return executeLive({ mint: chartMint, side: 'buy', amountUi: usd / pair.priceUsd, usd, symbol: symbolName }); })));
-      if (realHeld) ticketActions.append(btn('Live sell all', { variant: 'ghost' }, run(async () => executeLive({ mint: chartMint, side: 'sell', amountUi: realHeld.amount, symbol: symbolName }))));
-    }
-    const ticketHead = mk('header'); ticketHead.append(mk('h3', '', 'Order'), mk('span', 'ws-top-spacer'), mk('span', `ws-mode ${cfg().execution === 'live' ? 'live' : 'paper'}`, cfg().execution === 'live' ? 'LIVE' : 'PAPER'));
-    const ticketBody = mk('div', 'hf-body'); ticketBody.append(spend, presets, est, ticketActions);
-    const ticket = mk('div', 'hf-panel ws-ticket'); ticket.append(ticketHead, ticketBody);
-
-    const advanced = mk('details', 'ws-adv'); advanced.append(mk('summary', '', 'Advanced order'));
-    const slip = field('Slippage (bps)', 'number'); slip.querySelector('input').value = '50'; const kind = field('Condition', 'select', ['Limit buy', 'Limit sell', 'Stop-loss', 'Take-profit']); const trig = field('Trigger price', 'number');
-    advanced.append(slip, kind, trig, btn('Add condition', { sm: true }, run(async () => { const map = { 'Limit buy': ['limit', 'buy'], 'Limit sell': ['limit', 'sell'], 'Stop-loss': ['stop', 'sell'], 'Take-profit': ['takeProfit', 'sell'] }; const [k, sd] = map[selectOf(kind)]; const payload = { mint: chartMint, symbol: pair.symbol, kind: k, side: sd, trigger: Number(inputOf(trig)) }; if (sd === 'buy') payload.usd = 25; else payload.percent = 100; return call2(window.aurora.walletPaperCondition(payload)); })));
-    right.append(ticket, advanced, panel('Price alert', {}, alertForm(chartMint, symbolName, s)));
-
+    left.append(tradeInfo(chartMint, symbolName, s));
+    right.append(orderCard(chartMint, symbolName, pair, s), gigiCard(chartMint, symbolName, s));
     grid.append(left, right); root.append(grid);
   }
 
-  function drawDiscover(root, s) {
-    head(root, 'Discover', 'Trending tokens on Solana by DexScreener boosts, or search any token.');
-    const box = field('Search', 'search'); const input = box.querySelector('input'); const grid = mk('div', 'ws-grid'); root.append(box, panel('Trending on Solana', {}, grid));
-    const render = items => { grid.replaceChildren(); if (!items.length) { grid.append(emptyState('discover', 'No pairs found', 'Try another name or mint.')); return; } for (const token of items) grid.append(tokenCard(token)); };
-    const loadTrending = async () => { trending.loading = true; grid.replaceChildren(skeleton(4)); try { trending.items = await call2(window.aurora.walletTrending()); if (!trending.items.length) trending.items = await call2(window.aurora.walletSearch('SOL')); trending.loaded = true; render(trending.items); } catch { try { trending.items = await call2(window.aurora.walletSearch('SOL')); trending.loaded = true; render(trending.items); } catch (error) { grid.replaceChildren(emptyState('discover', 'Could not load pairs', error.message)); } } finally { trending.loading = false; } };
-    input.oninput = () => { clearTimeout(input._t); const q = input.value.trim(); if (!q) { render(trending.items); return; } input._t = setTimeout(async () => { grid.replaceChildren(skeleton(4)); try { render(await call2(window.aurora.walletSearch(q))); } catch (error) { grid.replaceChildren(emptyState('discover', 'Search failed', error.message)); } }, 320); };
-    if (!trending.loaded && !trending.loading) loadTrending();
+  function ageLabel(ms) { if (!ms) return '—'; const diff = Date.now() - Number(ms); const m = Math.floor(diff / 60000); if (m < 60) return `${Math.max(1, m)}m`; const h = Math.floor(m / 60); if (h < 24) return `${h}h`; const d = Math.floor(h / 24); return `${d}d`; }
+  const changeTd = v => { const n = Number(v || 0); return mk('td', `num ${n >= 0 ? 'hf-up' : 'hf-down'}`, `${n >= 0 ? '+' : ''}${n.toFixed(2)}%`); };
+  function screenerTable(rows, render) {
+    if (!rows.length) return emptyState('discover', 'No tokens match', 'Loosen the filters or hit refresh.');
+    const cols = [['token', 'Token'], ['priceUsd', 'Price'], ['change5m', '5m'], ['change1h', '1h'], ['change24h', '24h'], ['liquidityUsd', 'Liquidity'], ['volume24h', 'Volume'], ['marketCap', 'Mkt cap'], ['createdAt', 'Age'], ['__', '']];
+    const table = mk('table', 'hf-table ws-screener');
+    const thead = mk('thead'); const htr = mk('tr');
+    for (const [key, label] of cols) { const th = mk('th', key === 'token' || key === '__' ? '' : 'num', label); if (['priceUsd', 'change5m', 'change1h', 'change24h', 'liquidityUsd', 'volume24h', 'marketCap'].includes(key)) { th.style.cursor = 'pointer'; th.onclick = () => { if (discoverSort.key === key) discoverSort.dir *= -1; else discoverSort = { key, dir: -1 }; render(); }; if (discoverSort.key === key) th.textContent = `${label} ${discoverSort.dir < 0 ? '↓' : '↑'}`; } htr.append(th); }
+    thead.append(htr); table.append(thead);
+    const sorted = [...rows].sort((a, b) => ((a[discoverSort.key] ?? 0) - (b[discoverSort.key] ?? 0)) * discoverSort.dir);
+    const tb = mk('tbody');
+    for (const t of sorted) {
+      const tr = mk('tr'); tr.style.cursor = 'pointer'; tr.onclick = e => { if (e.target.closest('button')) return; section = 'trade'; selectToken(t.address); };
+      const td0 = mk('td'); td0.append(mk('span', 'ws-sym', t.symbol || short(t.address)), mk('small', 'ws-row-name', t.name || t.dex || ''));
+      const act = mk('td', 'num'); act.append(ibtn('watch', 'Watch', run(async () => { const data = await call2(window.aurora.walletWatchlistAdd(t.address)); window.toast(`${(t.symbol || short(t.address)).trim()} added to your watchlist.`); return data; })));
+      tr.append(td0, mk('td', 'num', money(t.priceUsd)), changeTd(t.change5m), changeTd(t.change1h), changeTd(t.change24h), mk('td', 'num', t.liquidityUsd ? `$${compact(t.liquidityUsd)}` : '—'), mk('td', 'num', t.volume24h ? `$${compact(t.volume24h)}` : '—'), mk('td', 'num', t.marketCap ? `$${compact(t.marketCap)}` : '—'), mk('td', 'num', ageLabel(t.createdAt)), act);
+      tb.append(tr);
+    }
+    table.append(tb); return table;
   }
-  function tokenCard(token) {
-    const c = mk('div', 'ws-token'); c.dataset.mint = token.address;
-    const r1 = mk('div', 'ws-token-row'); r1.append(mk('strong', '', token.symbol || short(token.address)), mk('span', (token.change24h || 0) >= 0 ? 'hf-up' : 'hf-down', `${(token.change24h || 0) >= 0 ? '+' : ''}${Number(token.change24h || 0).toFixed(2)}%`));
-    const r2 = mk('div', 'ws-token-row'); r2.append(mk('small', '', money(token.priceUsd)), mk('small', '', `${token.dex || 'dex'}`));
-    const r3 = mk('div', 'ws-token-row'); r3.append(mk('small', '', token.liquidityUsd ? `Liq $${compact(token.liquidityUsd)}` : 'Liq —'), mk('small', '', token.marketCap ? `MC $${compact(token.marketCap)}` : 'MC —'));
-    c.append(r1, r2, r3, ibtn('watch', 'Watch', run(async () => { const data = await call2(window.aurora.walletWatchlistAdd(token.address)); window.toast(`${(token.symbol || short(token.address)).trim()} added to your watchlist.`); return data; })));
-    c.onclick = e => { if (e.target.closest('button')) return; section = 'trade'; selectToken(token.address); };
-    return c;
+  function narrativesTable(items) {
+    if (!items.length) return emptyState('discover', 'No narratives', 'DexScreener returned nothing right now.');
+    const table = mk('table', 'hf-table ws-screener');
+    const thead = mk('thead'); const htr = mk('tr'); for (const [label, num] of [['Narrative', false], ['Tokens', true], ['Mkt cap', true], ['Volume', true], ['24h', true]]) htr.append(mk('th', num ? 'num' : '', label)); thead.append(htr); table.append(thead);
+    const tb = mk('tbody');
+    for (const m of [...items].sort((a, b) => (b.marketCap || 0) - (a.marketCap || 0))) { const tr = mk('tr'); const td0 = mk('td'); td0.append(mk('span', 'ws-sym', m.name || m.slug), mk('small', 'ws-row-name', m.description || '')); tr.append(td0, mk('td', 'num', num(m.tokenCount)), mk('td', 'num', m.marketCap ? `$${compact(m.marketCap)}` : '—'), mk('td', 'num', m.volume ? `$${compact(m.volume)}` : '—'), changeTd(m.change24h)); tb.append(tr); }
+    table.append(tb); return table;
+  }
+  function drawDiscover(root, s) {
+    head(root, 'Discover', 'Screen Solana tokens: trending, new pairs, takeovers and narratives.');
+    const TABS = [['trending', 'Trending'], ['new', 'New pairs'], ['takeovers', 'Takeovers'], ['narratives', 'Narratives']];
+    const tabs = mk('div', 'hf-tabs ws-disco-tabs');
+    for (const [id, label] of TABS) { const b = mk('button', 'hf-tab'); b.type = 'button'; b.dataset.t = id; b.setAttribute('role', 'tab'); b.append(mk('span', '', label)); b.onclick = () => { discoverTab = id; savePrefs(); render(); }; tabs.append(b); }
+    const search = mk('input', 'hf-input ws-disco-search'); search.type = 'search'; search.placeholder = 'Filter by symbol, name or mint'; search.value = discoverQuery;
+    const liq = mk('select', 'hf-input ws-disco-liq'); for (const [label, val] of [['Any liquidity', 0], ['≥ $10k', 1e4], ['≥ $50k', 5e4], ['≥ $250k', 25e4], ['≥ $1M', 1e6]]) { const o = mk('option', '', label); o.value = String(val); liq.append(o); } liq.value = String(discoverMinLiq);
+    const refresh = btn('Refresh', { sm: true, variant: 'ghost', icon: 'refresh' }, () => { discover.items[discoverTab] = null; discover.error[discoverTab] = ''; render(); });
+    const controls = mk('div', 'ws-disco-controls'); controls.append(search, liq, mk('span', 'ws-top-spacer'), refresh);
+    const body = mk('div', 'ws-disco-body');
+    root.append(tabs, controls, body);
+    search.oninput = () => { discoverQuery = search.value; render(); };
+    liq.onchange = () => { discoverMinLiq = Number(liq.value); render(); };
+    const load = async () => {
+      const tab = discoverTab;
+      if (discover.loading[tab]) return;
+      discover.loading[tab] = true; discover.error[tab] = '';
+      body.replaceChildren(skeleton(6));
+      try { discover.items[tab] = await call2(window.aurora.walletDiscover(tab)); }
+      catch (error) { discover.error[tab] = error.message; }
+      finally { discover.loading[tab] = false; }
+      if (open && section === 'discover') render();
+    };
+    function render() {
+      for (const b of tabs.querySelectorAll('button')) b.setAttribute('aria-selected', String(b.dataset.t === discoverTab));
+      const isNarr = discoverTab === 'narratives';
+      search.hidden = isNarr; liq.hidden = isNarr; refresh.hidden = false;
+      if (discover.error[discoverTab]) { body.replaceChildren(emptyState('discover', 'Could not load', discover.error[discoverTab])); body.append(btn('Retry', { sm: true, variant: 'ghost', icon: 'refresh' }, () => { discover.error[discoverTab] = ''; discover.items[discoverTab] = null; render(); })); return; }
+      if (!discover.items[discoverTab]) { if (!discover.loading[discoverTab]) load(); return; }
+      const items = discover.items[discoverTab] || [];
+      if (isNarr) { body.replaceChildren(narrativesTable(items)); return; }
+      const q = discoverQuery.trim().toLowerCase();
+      const rows = items.filter(t => (t.liquidityUsd || 0) >= discoverMinLiq && (!q || `${t.symbol} ${t.name} ${t.address}`.toLowerCase().includes(q)));
+      body.replaceChildren(screenerTable(rows, render));
+    }
+    render();
   }
 
   function drawResearch(root, s) {
@@ -498,15 +630,15 @@
         ibtn('delete', 'Delete', run(async () => call2(window.aurora.walletStrategyRemove(st.id))))
       );
       const badge = mk('span', `hf-badge${st.status === 'active' ? ' ok' : ' muted'}`, st.status === 'active' ? `${(st.execution || 'paper').toUpperCase()} · ACTIVE` : (st.execution || 'paper').toUpperCase());
-      list.append(listItem(`${st.name} · ${st.symbol || short(st.mint)}`, `${(st.conditions || []).map(c => `${c.metric} ${c.op} ${c.value}`).join(st.logic === 'or' ? ' OR ' : ' AND ')}${st.lastError ? ' · ' + st.lastError : ''}`, undefined, undefined, ct, badge));
+      list.append(listItem(`${st.name} · ${st.symbol || short(st.mint)}`, `${(st.conditions || []).map(c => `${c.metric} ${c.op} ${num(c.value)}`).join(st.logic === 'or' ? ' OR ' : ' AND ')}${st.lastError ? ' · ' + st.lastError : ''}`, undefined, undefined, ct, badge));
     }
     root.append(panel('Rule strategies', {}, list));
     root.append(panel('New signal', {}, signalForm(s)));
     const sigList = mk('div', 'ws-list'); const sigs = wallet()?.signals || [];
     if (!sigs.length) sigList.append(emptyState('alert', 'No signals yet', 'Create one above, or ask Gigi: “ping me when SOL drops 20%.”'));
-    for (const sg of sigs) { const ct = mk('div', 'ws-ctrls'); ct.append(ibtn(sg.enabled ? 'pause' : 'play', sg.enabled ? 'Disable' : 'Enable', run(async () => call2(window.aurora.walletSignalToggle(sg.id, !sg.enabled)))), ibtn('delete', 'Delete', run(async () => call2(window.aurora.walletSignalRemove(sg.id))))); const badge = mk('span', `hf-badge${sg.enabled ? ' ok' : ' muted'}`, sg.action === 'paper-buy' ? 'paper buy' : 'notify'); sigList.append(listItem(`${sg.name} · ${sg.symbol || short(sg.mint)}`, `${sg.condition.metric} ${sg.condition.op} ${sg.condition.value}${sg.requireResearch ? ' · needs fresh research' : ''}${sg.lastTriggeredAt ? ' · last ' + new Date(sg.lastTriggeredAt).toLocaleString() : ''}`, undefined, undefined, ct, badge)); }
+    for (const sg of sigs) { const ct = mk('div', 'ws-ctrls'); ct.append(ibtn(sg.enabled ? 'pause' : 'play', sg.enabled ? 'Disable' : 'Enable', run(async () => call2(window.aurora.walletSignalToggle(sg.id, !sg.enabled)))), ibtn('delete', 'Delete', run(async () => call2(window.aurora.walletSignalRemove(sg.id))))); const badge = mk('span', `hf-badge${sg.enabled ? ' ok' : ' muted'}`, sg.action === 'paper-buy' ? 'paper buy' : 'notify'); sigList.append(listItem(`${sg.name} · ${sg.symbol || short(sg.mint)}`, `${sg.condition.metric} ${sg.condition.op} ${num(sg.condition.value)}${sg.requireResearch ? ' · needs fresh research' : ''}${sg.lastTriggeredAt ? ' · last ' + new Date(sg.lastTriggeredAt).toLocaleString() : ''}`, undefined, undefined, ct, badge)); }
     root.append(panel('Signals', {}, sigList));
-    root.append(panel('Price alerts', {}, alertsBody(s)));
+    root.append(panel('Price alerts', {}, alertForm(chartMint || (s.holdings || [])[0]?.mint || (s.markets || [])[0]?.mint || '', sym(chartMint || (s.holdings || [])[0]?.mint || (s.markets || [])[0]?.mint || '', s), s), alertsBody(s)));
   }
 
   function csvDownload(name, rows) { const csv = rows.map(row => row.map(cell => `"${String(cell == null ? '' : cell).replace(/"/g, '""')}"`).join(',')).join('\n'); const blob = new Blob([csv], { type: 'text/csv;charset=utf-8' }); const url = URL.createObjectURL(blob); const a = mk('a'); a.href = url; a.download = name; a.style.display = 'none'; document.body.append(a); a.click(); a.remove(); setTimeout(() => URL.revokeObjectURL(url), 1000); }

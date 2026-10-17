@@ -16,6 +16,7 @@ contextBridge.exposeInMainWorld('aurora', {
   walletRefresh: () => ipcRenderer.invoke('wallet-refresh'),
   walletSearch: query => ipcRenderer.invoke('wallet-search', query),
   walletTrending: () => ipcRenderer.invoke('wallet-trending'),
+  walletDiscover: kind => ipcRenderer.invoke('wallet-discover', kind),
   walletSafety: mint => ipcRenderer.invoke('wallet-safety', mint),
   walletWatchlistAdd: mint => ipcRenderer.invoke('wallet-watchlist-add', mint),
   walletWatchlistRemove: mint => ipcRenderer.invoke('wallet-watchlist-remove', mint),

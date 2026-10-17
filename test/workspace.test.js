@@ -35,6 +35,10 @@ test('holders render for a token that has holder accounts', async () => {
   desk.window.AuroraWorkspace.open(true);
   await desk.flush();
   desk.tab('trade').click();
+  await desk.flush(8);
+  const holdersTab = [...desk.document.querySelectorAll('#ws-content .ws-subtabs button')].find(b => /Holders/.test(b.textContent));
+  assert.ok(holdersTab, 'holders subtab present');
+  holdersTab.click();
   await desk.flush(12);
   const holders = desk.document.querySelector('#ws-content .ws-holders');
   assert.ok(holders, 'holders body rendered');
@@ -52,4 +56,18 @@ test('sub-cent token prices are formatted, not rounded to $0', async () => {
   const bonk = rows.find(row => row.textContent.includes('BONK'));
   assert.ok(bonk, 'BONK market row present');
   assert.match(bonk.textContent, /\$0\.000003/, 'micro price uses significant digits');
+});
+
+test('discover renders a screener with formatted numbers and tabs', async () => {
+  const desk = createDesk({ wallet: walletFixture() });
+  desk.window.AuroraWorkspace.open(true);
+  await desk.flush();
+  desk.tab('discover').click();
+  await desk.flush(12);
+  const table = desk.document.querySelector('#ws-content .ws-screener');
+  assert.ok(table, 'screener table rendered');
+  assert.match(table.textContent, /BONK/, 'token row present');
+  assert.match(table.textContent, /\$0\.000003/, 'price formatted');
+  const tabs = [...desk.document.querySelectorAll('#ws-content .ws-disco-tabs button')].map(b => b.textContent);
+  assert.deepEqual(tabs, ['Trending', 'New pairs', 'Takeovers', 'Narratives']);
 });

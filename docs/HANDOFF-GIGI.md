@@ -405,3 +405,30 @@ Found, still open (by design or needing an environment):
 All fixes verified live: Canvas starters no longer toast a bogus error, the Markets window formats BONK
 correctly, and no section throws a console exception. `npm run check` passes, tests 189 pass / 1 skipped.
 
+### 2026-10-16 (ninth pass: de-purple + number formatting)
+
+- **Palette.** The default (Heartflow) theme was a neon-magenta/violet scheme (`#ff3fce`/`#8b7bff`) with
+  hardcoded purple glows and tints across `styles.css`, `harness-ui.css`, `brick.css`, etc. Repainted to a
+  clean slate + signal-blue palette (`#5b8cff` accent, `#38bdf8` secondary, neutral `#0b0d12` surfaces) and
+  replaced every hardcoded purple hex / `rgba(255,63,206,…)` / `rgba(123,92,255,…)` tint with neutral tokens
+  or blue/cyan. Agent accents (`agents.js`) and the theme swatch/description (`themes.js`) updated to match,
+  and the magenta logo PNG is hue-rotated to blue.
+- **Number formatting.** Added a grouped formatter (`num` in `src/workspace.js`) for strategy/signal
+  condition values and agent canvas table cells; market/portfolio metrics already use compact units
+  (`$1.33B`). Gigi's system prompt now asks her to format numbers for humans (thousands separators, 1.2M /
+  1.34B, enough decimals for small prices) instead of printing bare long integers.
+
+### 2026-10-16 (tenth pass: Discover 2.0 + order engine)
+
+- **Discover 2.0.** Rebuilt as a screener (`src/workspace.js drawDiscover`): tabs Trending / New pairs /
+  Takeovers / Narratives, a sortable table (price, 5m/1h/24h, liquidity, volume, mkt cap, age), a symbol
+  filter and a min-liquidity filter. New provider feeds `tokenProfiles`, `takeovers`, `narratives` and an
+  enriched `pairSummary` (5m/1h/6h change, 24h buys/sells, createdAt) in `src/wallet/providers.js`, exposed
+  as `wallet-discover`.
+- **Order engine.** Paper orders now support **market, limit, stop, stop-limit, trailing stop and OCO
+  (take-profit/stop-loss)** in `src/wallet/paper.js` (stop-limit arms into a limit; trailing tracks the
+  peak; the OCO sibling cancels on fill). Positions expose `avgPrice` and `roe`. The ticket uses an order
+  type dropdown with contextual fields (`src/workspace.js orderCard`); Portfolio shows entry, uPnL and ROE.
+- Tests: added provider feed tests, a screener DOM test, and paper tests for stop-limit, trailing, OCO and
+  ROE. `npm run check` passes, 201 pass / 1 skipped.
+

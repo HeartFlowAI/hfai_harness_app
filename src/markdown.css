@@ -13,6 +13,6 @@
 .code-copy{font-size:10px;color:#d2b9f0;border-radius:5px;padding:4px 8px;background:#33283f}
 .code-block pre{margin:0;padding:15px 16px;overflow-x:auto;line-height:1.65;scrollbar-width:thin}
 .code-block code{font:12px/1.65 Consolas,'Cascadia Code',monospace;white-space:pre;overflow-wrap:normal;color:#d7d7e7}
-.token.comment,.token.prolog{color:#818ba2}.token.string,.token.char{color:#a8d5b0}.token.keyword,.token.boolean{color:#c3a5ff}.token.function{color:#90cce5}.token.number{color:#ecc091}.token.operator,.token.punctuation{color:#bab5cc}.token.variable{color:#f1b8d5}.token.property,.token.tag{color:#e2b1ce}
+.token.comment,.token.prolog{color:#818ba2}.token.string,.token.char{color:#a8d5b0}.token.keyword,.token.boolean{color:var(--accent-soft)}.token.function{color:#90cce5}.token.number{color:#ecc091}.token.operator,.token.punctuation{color:#bab5cc}.token.variable{color:#f1b8d5}.token.property,.token.tag{color:#e2b1ce}
 .table-scroll{overflow-x:auto;margin:16px 0;border:1px solid #373044;border-radius:9px}.message-body table{border-collapse:collapse;width:100%;font-size:12px}.message-body th,.message-body td{padding:10px 13px;border-bottom:1px solid #373044;text-align:left;vertical-align:top}.message-body th{color:#ddc6fa;background:#24202e}.message-body tr:last-child td{border-bottom:0}
 .conversation{min-height:0}#messages{min-height:0;flex-basis:0;overflow-x:hidden}

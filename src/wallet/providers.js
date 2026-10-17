@@ -5,18 +5,25 @@ const { fetchMintSafety, rpcCall, DEFAULT_RPC } = require('./solana');
 const JUPITER_PRICE = 'https://lite-api.jup.ag/price/v3';
 const DEXSCREENER = 'https://api.dexscreener.com/latest/dex';
 const TOKEN_BOOSTS = 'https://api.dexscreener.com/token-boosts/top/v1';
+const TOKEN_BOOSTS_LATEST = 'https://api.dexscreener.com/token-boosts/latest/v1';
+const TOKEN_PROFILES = 'https://api.dexscreener.com/token-profiles/latest/v1';
+const TAKEOVERS = 'https://api.dexscreener.com/community-takeovers/latest/v1';
+const NARRATIVES = 'https://api.dexscreener.com/metas/trending/v1';
 const RUGCHECK = 'https://api.rugcheck.xyz/v1/tokens';
 const COINGECKO = 'https://api.coingecko.com/api/v3';
 const BINANCE = 'https://api.binance.com/api/v3';
 
 function number(value) { const n = Number(value); return Number.isFinite(n) ? n : 0; }
 function pairSummary(pair) {
+  const txns = pair.txns || {};
   return {
     dex: pair.dexId || '', chain: pair.chainId || '', url: pair.url || '',
     address: pair.baseToken?.address || '', symbol: pair.baseToken?.symbol || '', name: pair.baseToken?.name || '',
     priceUsd: number(pair.priceUsd), change24h: number(pair.priceChange?.h24),
+    change5m: number(pair.priceChange?.m5), change1h: number(pair.priceChange?.h1), change6h: number(pair.priceChange?.h6),
     liquidityUsd: number(pair.liquidity?.usd), volume24h: number(pair.volume?.h24),
-    marketCap: number(pair.marketCap || pair.fdv), fdv: number(pair.fdv)
+    marketCap: number(pair.marketCap || pair.fdv), fdv: number(pair.fdv),
+    buys24h: number(txns.h24?.buys), sells24h: number(txns.h24?.sells), createdAt: number(pair.pairCreatedAt)
   };
 }
 async function jupiterPrices(mints, { fetchImpl = fetch, signal } = {}) {
@@ -90,16 +97,40 @@ async function basePair(mint, { fetchImpl = fetch, signal } = {}) {
   const best = own.sort((a, b) => number(b?.liquidity?.usd) - number(a?.liquidity?.usd))[0];
   return best ? pairSummary(best) : null;
 }
+async function pairListFor(addresses, { fetchImpl = fetch, signal, limit = 14 } = {}) {
+  const pairs = await Promise.all((addresses || []).slice(0, limit * 2).map(address => basePair(address, { fetchImpl, signal }).catch(() => null)));
+  const seen = new Set();
+  return pairs.filter(pair => pair && pair.symbol && !seen.has(pair.address) && seen.add(pair.address)).slice(0, limit);
+}
 // Real trending: DexScreener token boosts (free, no key), Solana only, kept to the
-// pairs where the boosted token is the base so each card is a distinct token.
+// pairs where the boosted token is the base so each row is a distinct token.
 async function trending({ fetchImpl = fetch, signal, limit = 14 } = {}) {
   const response = await fetchImpl(TOKEN_BOOSTS, { signal });
   if (!response.ok) throw new Error(`DexScreener responded ${response.status}.`);
   const body = await response.json();
-  const solana = (Array.isArray(body) ? body : []).filter(item => item && item.chainId === 'solana' && item.tokenAddress).slice(0, limit * 2);
-  const pairs = await Promise.all(solana.map(item => basePair(item.tokenAddress, { fetchImpl, signal }).catch(() => null)));
-  const seen = new Set();
-  return pairs.filter(pair => pair && pair.symbol && !seen.has(pair.address) && seen.add(pair.address)).slice(0, limit);
+  const solana = (Array.isArray(body) ? body : []).filter(item => item && item.chainId === 'solana' && item.tokenAddress).map(item => item.tokenAddress);
+  return pairListFor(solana, { fetchImpl, signal, limit });
+}
+function solanaAddresses(body) { return (Array.isArray(body) ? body : []).filter(item => item && item.chainId === 'solana' && item.tokenAddress).map(item => item.tokenAddress); }
+async function tokenProfiles({ fetchImpl = fetch, signal, limit = 14 } = {}) {
+  const response = await fetchImpl(TOKEN_PROFILES, { signal });
+  if (!response.ok) throw new Error(`DexScreener responded ${response.status}.`);
+  return pairListFor(solanaAddresses(await response.json()), { fetchImpl, signal, limit });
+}
+async function takeovers({ fetchImpl = fetch, signal, limit = 14 } = {}) {
+  const response = await fetchImpl(TAKEOVERS, { signal });
+  if (!response.ok) throw new Error(`DexScreener responded ${response.status}.`);
+  return pairListFor(solanaAddresses(await response.json()), { fetchImpl, signal, limit });
+}
+async function narratives({ fetchImpl = fetch, signal, limit = 24 } = {}) {
+  const response = await fetchImpl(NARRATIVES, { signal });
+  if (!response.ok) throw new Error(`DexScreener responded ${response.status}.`);
+  const body = await response.json();
+  return (Array.isArray(body) ? body : []).slice(0, limit).map(meta => ({
+    name: String(meta.name || ''), slug: String(meta.slug || ''), description: String(meta.description || '').slice(0, 200),
+    marketCap: number(meta.marketCap), liquidity: number(meta.liquidity), volume: number(meta.volume), tokenCount: number(meta.tokenCount),
+    change24h: number(meta.marketCapChange?.h24), change1h: number(meta.marketCapChange?.h1)
+  }));
 }
 async function tokenSafety(mint, options = {}) {
   const safety = await fetchMintSafety(mint, options);
@@ -145,4 +176,4 @@ async function holders(mint, { fetchImpl = fetch, rpc = DEFAULT_RPC, signal } = 
   });
   return { mint, accounts, source: 'rpc', total, top1: accounts[0]?.pct || 0, top10: accounts.slice(0, 10).reduce((sum, entry) => sum + entry.pct, 0), holders: 0, risks: [] };
 }
-module.exports = { JUPITER_PRICE, DEXSCREENER, RUGCHECK, BINANCE, jupiterPrices, searchTokens, pairForToken, priceHistory, coinHistory, tokenHistory, binanceHistory, tokenSafety, holders, trending };
+module.exports = { JUPITER_PRICE, DEXSCREENER, RUGCHECK, BINANCE, jupiterPrices, searchTokens, pairForToken, priceHistory, coinHistory, tokenHistory, binanceHistory, tokenSafety, holders, trending, tokenProfiles, takeovers, narratives };
